@@ -1,0 +1,3399 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VoteChain — Nền tảng Bầu cử Blockchain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+<style>
+/* ═══════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════ */
+:root {
+  /* Navy-slate dark palette — Honouree-inspired */
+  --navy-950: #080c14;
+  --navy-900: #0d1422;
+  --navy-800: #131d30;
+  --navy-700: #1a2640;
+  --navy-600: #223050;
+  --navy-500: #2d3f63;
+
+  --slate-400: #8fa3c0;
+  --slate-300: #b8ccdf;
+  --slate-200: #d4e2f0;
+  --slate-100: #eaf1f8;
+
+  --violet:    #7c6ef5;
+  --violet-lt: rgba(124,110,245,.12);
+  --violet-dk: #5c4fd4;
+  --indigo:    #4f7ef5;
+  --cyan:      #22d3ee;
+  --cyan-lt:   rgba(34,211,238,.1);
+  --emerald:   #10b981;
+  --emerald-lt:rgba(16,185,129,.1);
+  --amber:     #f59e0b;
+  --amber-lt:  rgba(245,158,11,.1);
+  --rose:      #f43f5e;
+  --rose-lt:   rgba(244,63,94,.1);
+  --gold:      #fbbf24;
+
+  /* Semantic */
+  --bg:       var(--navy-950);
+  --surface:  var(--navy-900);
+  --surface-2:var(--navy-800);
+  --surface-3:var(--navy-700);
+  --border:   rgba(255,255,255,.065);
+  --border-2: rgba(255,255,255,.04);
+  --text:     #e8f0fa;
+  --text-2:   var(--slate-400);
+  --text-3:   #4a5f7a;
+  --accent:   var(--violet);
+
+  /* Typography */
+  --display: 'Syne', sans-serif;
+  --body:    'DM Sans', sans-serif;
+  --mono:    'DM Mono', monospace;
+
+  /* Radius */
+  --r-sm: 6px;  --r-md: 10px; --r-lg: 14px;
+  --r-xl: 18px; --r-2xl:22px; --r-full: 9999px;
+
+  /* Sidebar */
+  --sidebar-w: 240px;
+  --topbar-h: 60px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.3);
+  --shadow-md: 0 4px 20px rgba(0,0,0,.4);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,.5);
+  --shadow-glow: 0 0 24px rgba(124,110,245,.25);
+}
+
+/* ═══════════════════════════════════════════
+   RESET + BASE
+═══════════════════════════════════════════ */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { color-scheme:dark; scroll-behavior:smooth; font-size:14px; }
+body {
+  font-family: var(--body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  line-height: 1.55;
+}
+input, button, select, textarea { font-family: inherit; font-size: inherit; }
+a { text-decoration: none; color: inherit; }
+button { cursor: pointer; border: none; background: none; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--navy-600); border-radius: 2px; }
+
+/* ═══════════════════════════════════════════
+   UTILITY
+═══════════════════════════════════════════ */
+.hidden { display: none !important; }
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.flex-1 { flex: 1; }
+.text-accent { color: var(--accent); }
+.text-muted { color: var(--text-2); }
+.text-dim { color: var(--text-3); }
+.font-mono { font-family: var(--mono); }
+.font-display { font-family: var(--display); }
+.truncate { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ═══════════════════════════════════════════
+   BACKGROUND ATMOSPHERIC EFFECTS
+═══════════════════════════════════════════ */
+.bg-atmosphere {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 40% at 75% 10%, rgba(124,110,245,.08) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 20% 80%, rgba(34,211,238,.05) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(13,20,34,.9) 0%, transparent 100%);
+}
+
+/* ═══════════════════════════════════════════
+   ── AUTH LAYER ──
+═══════════════════════════════════════════ */
+#auth-layer {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex;
+  background: var(--navy-950);
+  overflow: hidden;
+}
+
+/* Auth illustration panel */
+.auth-panel-left {
+  width: 45%;
+  background: linear-gradient(145deg, var(--navy-800) 0%, var(--navy-700) 100%);
+  position: relative;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  padding: 60px;
+  overflow: hidden;
+}
+@media(max-width:900px) { .auth-panel-left { display: none; } }
+
+.auth-panel-left::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 40% 30%, rgba(124,110,245,.2) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 70% 70%, rgba(34,211,238,.1) 0%, transparent 50%);
+}
+
+.auth-illustration {
+  position: relative; z-index: 1;
+  text-align: center;
+}
+.auth-orbs {
+  width: 260px; height: 260px;
+  position: relative;
+  margin: 0 auto 32px;
+}
+.orb {
+  position: absolute; border-radius: 50%;
+  animation: float-orb 6s ease-in-out infinite;
+}
+.orb-1 { width:160px;height:160px; top:30px;left:30px;
+  background:linear-gradient(135deg,rgba(124,110,245,.4),rgba(79,126,245,.2));
+  border:1px solid rgba(124,110,245,.3); backdrop-filter:blur(20px); }
+.orb-2 { width:100px;height:100px; top:10px;right:20px;
+  background:linear-gradient(135deg,rgba(34,211,238,.3),rgba(16,185,129,.15));
+  border:1px solid rgba(34,211,238,.25); animation-delay:-2s; animation-duration:8s; }
+.orb-3 { width:70px;height:70px; bottom:30px;left:20px;
+  background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(245,158,11,.1));
+  border:1px solid rgba(251,191,36,.2); animation-delay:-4s; animation-duration:7s; }
+@keyframes float-orb {
+  0%,100% { transform:translateY(0) scale(1); }
+  50% { transform:translateY(-16px) scale(1.04); }
+}
+.orb-inner {
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:56px;
+}
+
+.auth-brand-name {
+  font-family: var(--display);
+  font-size: 32px; font-weight: 800;
+  letter-spacing: -1px;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.auth-tagline {
+  font-size: 15px; color: var(--slate-400);
+  line-height: 1.65; max-width: 300px;
+}
+.auth-features {
+  margin-top: 40px;
+  display: flex; flex-direction: column; gap: 12px;
+  text-align: left; width: 100%; max-width: 300px;
+}
+.auth-feature {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  font-size: 13px;
+  color: var(--slate-300);
+}
+.auth-feature-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+
+/* Auth form panel */
+.auth-panel-right {
+  flex: 1;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  padding: 48px 40px;
+  overflow-y: auto;
+}
+
+.auth-form-box {
+  width: 100%; max-width: 400px;
+}
+.auth-logo-mobile {
+  display: none;
+  font-family: var(--display);
+  font-size: 24px; font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 32px;
+  align-items: center; gap: 10px;
+}
+@media(max-width:900px) { .auth-logo-mobile { display: flex; } }
+
+.auth-tabs {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 3px;
+  margin-bottom: 32px;
+}
+.auth-tab {
+  flex: 1; padding: 9px;
+  border-radius: var(--r-md);
+  text-align: center;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-2);
+  transition: all .2s;
+  cursor: pointer;
+}
+.auth-tab.active {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.auth-heading {
+  font-family: var(--display);
+  font-size: 26px; font-weight: 700;
+  letter-spacing: -.6px;
+  margin-bottom: 6px;
+}
+.auth-sub {
+  font-size: 13px; color: var(--text-2);
+  margin-bottom: 28px; line-height: 1.6;
+}
+
+/* Form fields */
+.field { margin-bottom: 16px; }
+.field-label {
+  display: block;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-2);
+  margin-bottom: 7px;
+}
+.field-input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field-input:focus {
+  border-color: var(--violet);
+  box-shadow: 0 0 0 3px rgba(124,110,245,.15);
+}
+.field-input::placeholder { color: var(--text-3); }
+.field-input-wrap { position: relative; }
+.field-input-wrap .field-input { padding-right: 42px; }
+.field-toggle {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--text-2);
+  cursor: pointer; font-size: 16px;
+  transition: color .15s;
+}
+.field-toggle:hover { color: var(--text); }
+
+.field-hint {
+  font-size: 11px; color: var(--text-3);
+  margin-top: 5px;
+}
+.field-error {
+  font-size: 11px; color: var(--rose);
+  margin-top: 5px; display: none;
+}
+
+.auth-options {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+}
+.auth-check {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--text-2); cursor: pointer;
+}
+.auth-check input { accent-color: var(--violet); }
+.auth-forgot {
+  font-size: 12px; color: var(--violet);
+  cursor: pointer; background: none; border: none;
+}
+.auth-forgot:hover { text-decoration: underline; }
+
+/* Btn full */
+.btn-full {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  border: none;
+  cursor: pointer;
+  font-family: var(--body);
+  font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all .18s;
+  position: relative; overflow: hidden;
+}
+.btn-full.primary {
+  background: linear-gradient(135deg, var(--violet), var(--violet-dk));
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(124,110,245,.3);
+}
+.btn-full.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(124,110,245,.45);
+}
+.btn-full.primary:active { transform: scale(.98); }
+
+.btn-full .loading-dot {
+  display: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn-full.loading span { display: none; }
+.btn-full.loading .loading-dot { display: block; }
+
+.auth-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 20px 0;
+  font-size: 11px; color: var(--text-3);
+}
+.auth-divider::before, .auth-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+.btn-metamask {
+  width: 100%;
+  padding: 11px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  cursor: pointer;
+  transition: all .18s;
+}
+.btn-metamask:hover { background: var(--surface-2); border-color: rgba(255,255,255,.12); }
+.metamask-logo { font-size: 20px; }
+
+.auth-switch {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 13px; color: var(--text-2);
+}
+.auth-switch-link {
+  color: var(--violet); font-weight: 500;
+  cursor: pointer; background: none; border: none;
+  font-family: inherit; font-size: inherit;
+}
+.auth-switch-link:hover { text-decoration: underline; }
+
+/* ═══════════════════════════════════════════
+   ── APP LAYER ──
+═══════════════════════════════════════════ */
+#app-layer {
+  display: none;
+  min-height: 100vh;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  z-index: 40;
+  transition: transform .3s ease;
+}
+@media(max-width:768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+}
+
+.sidebar-logo {
+  padding: 20px 20px 16px;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--border-2);
+}
+.sidebar-logo-mark {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: linear-gradient(135deg, var(--violet), var(--violet-dk));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(124,110,245,.35);
+}
+.sidebar-logo-text {
+  font-family: var(--display);
+  font-size: 17px; font-weight: 800;
+  letter-spacing: -.3px;
+}
+
+.sidebar-nav {
+  flex: 1; overflow-y: auto;
+  padding: 16px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.nav-section-label {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: var(--text-3);
+  padding: 12px 10px 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--r-md);
+  color: var(--text-2);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+  position: relative;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--text); }
+.nav-item.active {
+  background: var(--violet-lt);
+  color: var(--violet);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 20%; bottom: 20%;
+  width: 3px; border-radius: 0 2px 2px 0;
+  background: var(--violet);
+}
+.nav-icon {
+  width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+.nav-badge {
+  margin-left: auto;
+  background: var(--violet);
+  color: #fff;
+  font-size: 10px; font-weight: 700;
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+}
+
+.sidebar-footer {
+  padding: 14px 12px;
+  border-top: 1px solid var(--border-2);
+}
+.user-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  cursor: pointer; transition: background .15s;
+}
+.user-card:hover { background: var(--surface-2); }
+.user-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--violet), var(--cyan));
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-weight: 700;
+  font-size: 13px; color: #fff; flex-shrink: 0;
+}
+.user-name { font-size: 13px; font-weight: 500; }
+.user-role { font-size: 11px; color: var(--text-2); }
+.user-logout { margin-left: auto; color: var(--text-3); font-size: 14px; transition: color .15s; }
+.user-logout:hover { color: var(--rose); }
+
+/* ── TOPBAR ── */
+.topbar {
+  position: fixed; top: 0;
+  left: var(--sidebar-w); right: 0;
+  height: var(--topbar-h);
+  background: rgba(8,12,20,.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 28px;
+  z-index: 30;
+  gap: 16px;
+}
+@media(max-width:768px) { .topbar { left: 0; } }
+
+.topbar-burger {
+  display: none;
+  color: var(--text-2); font-size: 20px;
+}
+@media(max-width:768px) { .topbar-burger { display: flex; } }
+
+.topbar-breadcrumb {
+  font-family: var(--display);
+  font-size: 16px; font-weight: 700;
+  letter-spacing: -.3px;
+}
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+
+/* Wallet badge */
+.wallet-badge {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 14px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 11px; font-family: var(--mono);
+  color: var(--text-2);
+  transition: all .3s;
+}
+.wallet-pulse {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-3); transition: all .3s;
+  flex-shrink: 0;
+}
+.wallet-badge.connected .wallet-pulse {
+  background: var(--emerald);
+  box-shadow: 0 0 8px var(--emerald);
+  animation: pulse-dot 2s infinite;
+}
+.wallet-badge.wrong .wallet-pulse { background: var(--rose); }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* Notif bell */
+.notif-btn {
+  width: 36px; height: 36px; border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text-2); font-size: 16px;
+  cursor: pointer; transition: all .15s; position: relative;
+}
+.notif-btn:hover { background: var(--surface-3); color: var(--text); }
+.notif-dot {
+  position: absolute; top: 7px; right: 7px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--violet);
+  border: 1.5px solid var(--surface);
+}
+
+/* ── MAIN CONTENT ── */
+.main-content {
+  margin-left: var(--sidebar-w);
+  padding-top: var(--topbar-h);
+  min-height: 100vh;
+}
+@media(max-width:768px) { .main-content { margin-left: 0; } }
+
+.page {
+  display: none;
+  padding: 28px;
+  animation: page-in .3s ease;
+}
+.page.active { display: block; }
+@keyframes page-in {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ── PAGE HEADER ── */
+.page-header {
+  margin-bottom: 24px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.page-title {
+  font-family: var(--display);
+  font-size: 24px; font-weight: 800;
+  letter-spacing: -.6px; line-height: 1.1;
+}
+.page-sub {
+  font-size: 13px; color: var(--text-2);
+  margin-top: 4px;
+}
+.page-actions { display: flex; gap: 10px; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════
+   COMMON COMPONENTS
+═══════════════════════════════════════════ */
+
+/* Card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+}
+.card-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-2);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-family: var(--display); font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
+.card-subtitle { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+.card-body { padding: 22px; }
+
+/* Stat card */
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s, transform .2s;
+}
+.stat-card:hover { border-color: rgba(255,255,255,.12); transform: translateY(-1px); }
+.stat-card-glow {
+  position: absolute; top: -30px; right: -30px;
+  width: 100px; height: 100px; border-radius: 50%;
+  opacity: .08; pointer-events: none;
+}
+.stat-value {
+  font-family: var(--display);
+  font-size: 30px; font-weight: 800;
+  letter-spacing: -1px; line-height: 1;
+  margin-bottom: 6px;
+}
+.stat-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-3);
+}
+.stat-change {
+  font-size: 12px; margin-top: 8px;
+  display: flex; align-items: center; gap: 4px;
+}
+.stat-icon {
+  width: 38px; height: 38px; border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; margin-bottom: 14px;
+}
+
+/* Btn variants */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 18px; border-radius: var(--r-lg);
+  font-family: var(--body); font-size: 13px; font-weight: 500;
+  border: none; cursor: pointer; transition: all .15s;
+  line-height: 1; white-space: nowrap;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--violet), var(--violet-dk));
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(124,110,245,.25);
+}
+.btn-primary:hover { transform:translateY(-1px); box-shadow:0 5px 18px rgba(124,110,245,.4); }
+.btn-primary:active { transform:scale(.97); }
+.btn-ghost {
+  background: var(--surface-2); color: var(--text-2);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--surface-3); color: var(--text); }
+.btn-danger {
+  background: var(--rose-lt); color: var(--rose);
+  border: 1px solid rgba(244,63,94,.2);
+}
+.btn-danger:hover { background: rgba(244,63,94,.18); }
+.btn-sm { padding: 6px 12px; font-size: 12px; border-radius: var(--r-md); }
+.btn-xs { padding: 4px 10px; font-size: 11px; border-radius: var(--r-sm); }
+
+/* Badge */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 9px; border-radius: var(--r-full);
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.badge-violet { background:var(--violet-lt); color:var(--violet); }
+.badge-emerald { background:var(--emerald-lt); color:var(--emerald); }
+.badge-amber { background:var(--amber-lt); color:var(--amber); }
+.badge-rose { background:var(--rose-lt); color:var(--rose); }
+.badge-cyan { background:var(--cyan-lt); color:var(--cyan); }
+
+/* Progress bar */
+.progress-wrap { background:var(--surface-3); border-radius:3px; height:5px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:3px; transition:width .9s cubic-bezier(.4,0,.2,1); }
+
+/* Avatar */
+.avatar {
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-weight: 700;
+  color: #fff; flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════
+   DASHBOARD PAGE
+═══════════════════════════════════════════ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media(max-width:1100px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+@media(max-width:580px)  { .stats-grid { grid-template-columns: 1fr; } }
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  align-items: start;
+}
+@media(max-width:1000px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+/* Activity feed */
+.activity-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 13px 22px;
+  border-bottom: 1px solid var(--border-2);
+  transition: background .15s;
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-item:hover { background: rgba(255,255,255,.02); }
+.activity-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  margin-top: 6px; flex-shrink: 0;
+}
+.activity-text { font-size: 13px; color: var(--text); }
+.activity-text span { color: var(--text-2); }
+.activity-time { font-size: 11px; color: var(--text-3); margin-top: 2px; font-family: var(--mono); }
+.activity-icon-wrap { margin-left: auto; flex-shrink: 0; }
+
+/* Leaderboard */
+.leader-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border-2);
+  transition: background .15s;
+}
+.leader-row:last-child { border-bottom: none; }
+.leader-row:hover { background: rgba(255,255,255,.02); }
+.leader-rank {
+  width: 26px; height: 26px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; font-family: var(--mono);
+  flex-shrink: 0;
+}
+.rank-gold   { background:rgba(251,191,36,.15); color:var(--gold); }
+.rank-silver { background:rgba(148,163,184,.12); color:#94a3b8; }
+.rank-bronze { background:rgba(180,120,70,.12);  color:#b47846; }
+.rank-other  { background:var(--surface-3); color:var(--text-3); }
+
+.leader-info { flex: 1; min-width: 0; }
+.leader-name { font-size: 13px; font-weight: 500; }
+.leader-party { font-size: 11px; color: var(--text-2); margin-top: 1px; }
+.leader-votes { text-align: right; }
+.leader-votes-num { font-family: var(--display); font-size: 18px; font-weight: 700; }
+.leader-votes-pct { font-size: 11px; color: var(--text-2); margin-top: 1px; }
+
+/* Live indicator */
+.live-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: var(--r-full);
+  background: var(--emerald-lt);
+  border: 1px solid rgba(16,185,129,.2);
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--emerald);
+}
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--emerald);
+  animation: pulse-dot 1.5s infinite;
+}
+
+/* Bar chart — proper vertical */
+.bar-chart-wrap {
+  padding: 0 4px;
+}
+.bar-chart-axis-area {
+  display: flex; gap: 14px; align-items: flex-end;
+  height: 140px; position: relative;
+  padding-bottom: 0;
+}
+.bar-chart-axis-area::before {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 1px; background: var(--border);
+}
+.bar-chart-gridlines {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  pointer-events: none;
+}
+.bar-chart-col {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; gap: 0; height: 100%;
+  position: relative; justify-content: flex-end;
+}
+.bar-chart-bar-wrap {
+  width: 100%; display: flex; align-items: flex-end;
+  justify-content: center;
+}
+.bar-chart-bar {
+  width: min(48px, 80%);
+  border-radius: 6px 6px 0 0;
+  min-height: 4px;
+  transition: height .9s cubic-bezier(.4,0,.2,1);
+  position: relative;
+  cursor: pointer;
+}
+.bar-chart-bar::after {
+  content: attr(data-val);
+  position: absolute; top: -24px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  color: var(--text); white-space: nowrap;
+}
+.bar-chart-label {
+  font-size: 11px; color: var(--text-3);
+  margin-top: 8px; text-align: center;
+  font-family: var(--mono); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 100%;
+  padding: 0 2px;
+}
+.bar-chart-pct {
+  font-size: 10px; color: var(--text-3);
+  margin-top: 2px; text-align: center; font-family: var(--mono);
+}
+
+/* Donut chart simulation */
+.donut-wrap { position: relative; width: 140px; height: 140px; margin: 0 auto 20px; }
+.donut-svg { transform: rotate(-90deg); }
+.donut-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.donut-center-num { font-family: var(--display); font-size: 24px; font-weight: 800; }
+.donut-center-lbl { font-size: 10px; color: var(--text-2); text-transform: uppercase; letter-spacing: .05em; }
+
+/* ═══════════════════════════════════════════
+   CANDIDATES PAGE
+═══════════════════════════════════════════ */
+.candidates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.candidate-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 22px;
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+.candidate-card:hover {
+  border-color: rgba(124,110,245,.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.3), 0 0 0 1px rgba(124,110,245,.1);
+}
+.candidate-card-top {
+  display: flex; align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.cand-avatar-wrap { position: relative; }
+.cand-avatar-img {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-weight: 800;
+  font-size: 20px; color: #fff;
+}
+.cand-rank-badge {
+  position: absolute; bottom: -5px; right: -5px;
+  width: 20px; height: 20px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700;
+  border: 2px solid var(--surface);
+}
+.cand-name { font-family: var(--display); font-size: 16px; font-weight: 700; letter-spacing: -.3px; margin-bottom: 3px; }
+.cand-party { font-size: 11px; color: var(--text-2); }
+.cand-votes-big {
+  font-family: var(--display);
+  font-size: 32px; font-weight: 800;
+  letter-spacing: -1.5px;
+  margin: 14px 0 6px;
+}
+.cand-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-2); margin-top: 6px; }
+.cand-desc { font-size: 12px; color: var(--text-2); line-height: 1.6; margin-top: 14px; }
+.cand-flash { animation: cand-flash .9s ease; }
+@keyframes cand-flash {
+  0% { border-color: var(--violet); box-shadow: 0 0 20px rgba(124,110,245,.3); }
+  100% { border-color: var(--border); box-shadow: none; }
+}
+
+/* ═══════════════════════════════════════════
+   VOTING PAGE
+═══════════════════════════════════════════ */
+.voting-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 24px;
+  align-items: start;
+}
+@media(max-width:960px) { .voting-layout { grid-template-columns: 1fr; } }
+
+/* Phase timeline */
+.phase-timeline {
+  display: flex; gap: 0;
+  margin-bottom: 24px;
+}
+.phase-step {
+  flex: 1; position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; gap: 8px;
+}
+.phase-step::before {
+  content: ''; position: absolute;
+  top: 14px; left: 50%;
+  width: 100%; height: 2px;
+  background: var(--border);
+}
+.phase-step:last-child::before { display: none; }
+.phase-step.done::before { background: var(--violet); }
+.phase-step-circle {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; font-family: var(--mono);
+  color: var(--text-3);
+  position: relative; z-index: 1;
+  transition: all .3s;
+}
+.phase-step.done .phase-step-circle {
+  background: var(--violet); border-color: var(--violet);
+  color: #fff; box-shadow: 0 0 12px rgba(124,110,245,.4);
+}
+.phase-step.active .phase-step-circle {
+  border-color: var(--violet); color: var(--violet);
+  box-shadow: 0 0 0 4px rgba(124,110,245,.15);
+}
+.phase-step-label { font-size: 11px; color: var(--text-2); font-weight: 500; }
+.phase-step.done .phase-step-label,
+.phase-step.active .phase-step-label { color: var(--violet); }
+
+/* Radio cards */
+.vote-radio-list { display: flex; flex-direction: column; gap: 10px; }
+.vote-radio-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 18px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-xl);
+  cursor: pointer; transition: all .15s;
+  background: var(--surface);
+}
+.vote-radio-card:hover { border-color: rgba(124,110,245,.3); background: rgba(124,110,245,.04); }
+.vote-radio-card.selected {
+  border-color: var(--violet);
+  background: rgba(124,110,245,.07);
+  box-shadow: 0 0 0 3px rgba(124,110,245,.12);
+}
+.vote-radio-check {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--border); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.vote-radio-card.selected .vote-radio-check { border-color: var(--violet); }
+.vote-radio-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--violet);
+  transform: scale(0); opacity: 0; transition: all .15s;
+}
+.vote-radio-card.selected .vote-radio-dot { transform: scale(1); opacity: 1; }
+.vote-radio-info { flex: 1; min-width: 0; }
+.vote-radio-name { font-size: 14px; font-weight: 600; }
+.vote-radio-party { font-size: 11px; color: var(--text-2); margin-top: 1px; }
+.vote-radio-votes { font-family: var(--mono); font-size: 13px; color: var(--text-2); flex-shrink: 0; }
+
+/* Vote submit card */
+.vote-submit-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  position: sticky; top: calc(var(--topbar-h) + 24px);
+}
+.vote-submit-head {
+  padding: 20px 22px;
+  background: linear-gradient(135deg, rgba(124,110,245,.12), rgba(79,126,245,.06));
+  border-bottom: 1px solid var(--border-2);
+}
+.vote-submit-head h3 { font-family: var(--display); font-size: 17px; font-weight: 700; margin-bottom: 3px; }
+.vote-submit-head p { font-size: 12px; color: var(--text-2); }
+
+/* Voted confirm */
+.voted-confirm-box {
+  padding: 16px;
+  background: var(--emerald-lt);
+  border: 1px solid rgba(16,185,129,.2);
+  border-radius: var(--r-lg);
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.voted-check-circle {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--emerald); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; margin-top: 1px;
+}
+
+/* Gas warning */
+.gas-warning {
+  display: none;
+  padding: 11px 14px;
+  background: var(--amber-lt);
+  border: 1px solid rgba(245,158,11,.2);
+  border-radius: var(--r-md);
+  font-size: 12px; color: var(--amber);
+  display: flex; align-items: flex-start; gap: 8px; line-height: 1.5;
+}
+.gas-warning-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+/* ═══════════════════════════════════════════
+   TRANSACTIONS PAGE
+═══════════════════════════════════════════ */
+.tx-filters {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.tx-filter-btn {
+  padding: 7px 14px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px; font-weight: 500;
+  color: var(--text-2); cursor: pointer; transition: all .15s;
+}
+.tx-filter-btn.active {
+  background: var(--violet-lt);
+  border-color: rgba(124,110,245,.3);
+  color: var(--violet);
+}
+.tx-filter-btn:hover:not(.active) { background: var(--surface-2); color: var(--text); }
+
+.tx-table { width: 100%; border-collapse: collapse; }
+.tx-table th {
+  text-align: left; padding: 10px 18px;
+  font-size: 10px; font-weight: 600; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .08em;
+  border-bottom: 1px solid var(--border-2);
+}
+.tx-table td { padding: 14px 18px; border-bottom: 1px solid var(--border-2); font-size: 13px; vertical-align: middle; }
+.tx-table tr:last-child td { border-bottom: none; }
+.tx-table tr { transition: background .12s; }
+.tx-table tr:hover td { background: rgba(255,255,255,.02); }
+.tx-table .new-row { animation: row-appear .4s ease; }
+@keyframes row-appear { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
+
+.tx-hash-link { font-family: var(--mono); font-size: 12px; color: var(--violet); cursor: pointer; }
+.tx-hash-link:hover { text-decoration: underline; }
+.tx-voter { font-family: var(--mono); font-size: 12px; color: var(--text-2); }
+.tx-block { font-family: var(--mono); font-size: 12px; color: var(--text-3); }
+
+/* ═══════════════════════════════════════════
+   SETTINGS PAGE
+═══════════════════════════════════════════ */
+.settings-section { margin-bottom: 28px; }
+.settings-section-title {
+  font-family: var(--display);
+  font-size: 14px; font-weight: 700;
+  letter-spacing: -.2px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-2);
+}
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-2);
+  gap: 16px;
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row-label { font-size: 13px; font-weight: 500; }
+.settings-row-desc { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+/* Toggle */
+.toggle-wrap { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+.toggle-input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0;
+  border-radius: 11px;
+  background: var(--surface-3);
+  cursor: pointer; transition: background .2s;
+}
+.toggle-slider::before {
+  content: ''; position: absolute;
+  width: 16px; height: 16px; border-radius: 50%;
+  top: 3px; left: 3px;
+  background: var(--text-2);
+  transition: all .2s;
+}
+.toggle-input:checked + .toggle-slider { background: var(--violet); }
+.toggle-input:checked + .toggle-slider::before { transform: translateX(18px); background: #fff; }
+
+/* ═══════════════════════════════════════════
+   TOAST NOTIFICATIONS
+═══════════════════════════════════════════ */
+#toast-root {
+  position: fixed; bottom: 24px; right: 24px;
+  z-index: 999;
+  display: flex; flex-direction: column-reverse; gap: 8px;
+  max-width: 380px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: all;
+  padding: 14px 16px;
+  border-radius: var(--r-xl);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,.04);
+  display: flex; gap: 12px; align-items: flex-start;
+  animation: toast-in .35s cubic-bezier(.34,1.56,.64,1);
+  max-width: 380px;
+}
+@keyframes toast-in { from{opacity:0;transform:translateY(20px) scale(.92)} to{opacity:1;transform:none} }
+.toast.hiding { animation: toast-out .3s ease forwards; }
+@keyframes toast-out { to{opacity:0;transform:translateY(12px) scale(.95)} }
+
+.toast.success { border-color:rgba(16,185,129,.25); }
+.toast.error   { border-color:rgba(244,63,94,.25); }
+.toast.warning { border-color:rgba(245,158,11,.25); }
+.toast.info    { border-color:rgba(124,110,245,.25); }
+
+.toast-icon-wrap {
+  width: 32px; height: 32px; border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.toast.success .toast-icon-wrap { background:var(--emerald-lt); }
+.toast.error   .toast-icon-wrap { background:var(--rose-lt); }
+.toast.warning .toast-icon-wrap { background:var(--amber-lt); }
+.toast.info    .toast-icon-wrap { background:var(--violet-lt); }
+
+.toast-body { flex: 1; min-width: 0; }
+.toast-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.toast-desc  { font-size: 12px; color: var(--text-2); line-height: 1.5; }
+.toast-close {
+  color: var(--text-3); font-size: 14px; flex-shrink: 0;
+  margin-top: 1px; cursor: pointer; transition: color .15s;
+}
+.toast-close:hover { color: var(--text); }
+
+/* Wrong network banner */
+.network-banner {
+  display: none;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border-radius: var(--r-xl);
+  background: linear-gradient(135deg, rgba(244,63,94,.07), rgba(244,63,94,.03));
+  border: 1px solid rgba(244,63,94,.2);
+  align-items: center; gap: 14px; flex-wrap: wrap;
+}
+.network-banner.show { display: flex; }
+.network-banner-icon { font-size: 22px; flex-shrink: 0; }
+.network-banner-body h4 { font-size: 13px; font-weight: 600; color: var(--rose); }
+.network-banner-body p  { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.network-banner-body p b { color: var(--text); }
+
+/* ═══════════════════════════════════════════
+   ERROR DISPLAY (specific errors)
+═══════════════════════════════════════════ */
+.inline-error {
+  display: none;
+  padding: 12px 15px;
+  border-radius: var(--r-lg);
+  font-size: 12px; line-height: 1.55;
+  align-items: flex-start; gap: 10px;
+}
+.inline-error.show { display: flex; }
+.inline-error.error-reject {
+  background: rgba(244,63,94,.07);
+  border: 1px solid rgba(244,63,94,.18);
+  color: var(--rose);
+}
+.inline-error.error-gas {
+  background: rgba(245,158,11,.07);
+  border: 1px solid rgba(245,158,11,.18);
+  color: var(--amber);
+}
+.inline-error.error-voted {
+  background: rgba(124,110,245,.07);
+  border: 1px solid rgba(124,110,245,.18);
+  color: var(--violet);
+}
+.inline-error-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.inline-error-text h5 { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+.inline-error-text p  { font-size: 11px; opacity: .85; }
+
+/* Field error */
+.field-err {
+  display: none;
+  font-size: 11px; color: var(--rose);
+  margin-top: 5px;
+}
+.field-err.show { display: block; }
+.field-input.err { border-color: var(--rose); }
+
+/* ═══════════════════════════════════════════
+   LOADING SPINNER PAGE
+═══════════════════════════════════════════ */
+.page-loading {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 300px;
+}
+.spinner-ring {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid rgba(124,110,245,.2);
+  border-top-color: var(--violet);
+  animation: spin .7s linear infinite;
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE ADJUSTMENTS
+═══════════════════════════════════════════ */
+@media(max-width:640px) {
+  .page { padding: 16px; }
+  .candidates-grid { grid-template-columns: 1fr; }
+  .tx-table th:nth-child(3),
+  .tx-table td:nth-child(3) { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="bg-atmosphere"></div>
+
+<!-- ═══════════════════════════════════════
+     AUTH LAYER
+════════════════════════════════════════ -->
+<div id="auth-layer">
+
+  <!-- Left illustration -->
+  <div class="auth-panel-left">
+    <div class="auth-illustration">
+      <div class="auth-orbs">
+        <div class="orb orb-1"><div class="orb-inner">🗳</div></div>
+        <div class="orb orb-2"><div class="orb-inner" style="font-size:32px">⛓</div></div>
+        <div class="orb orb-3"><div class="orb-inner" style="font-size:24px">🔐</div></div>
+      </div>
+      <div class="auth-brand-name">VoteChain</div>
+      <p class="auth-tagline">Nền tảng bầu cử phi tập trung, minh bạch và bất biến trên Ethereum blockchain.</p>
+      <div class="auth-features">
+        <div class="auth-feature">
+          <div class="auth-feature-icon" style="background:rgba(124,110,245,.15)">🔏</div>
+          Mỗi phiếu bầu được mã hóa và ghi vĩnh viễn on-chain
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-icon" style="background:rgba(34,211,238,.12)">📊</div>
+          Theo dõi kết quả thời gian thực, không thể giả mạo
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-icon" style="background:rgba(16,185,129,.12)">✅</div>
+          Kiểm tra mọi giao dịch công khai trên Sepolia Testnet
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right form -->
+  <div class="auth-panel-right">
+    <div class="auth-form-box">
+
+      <div class="auth-logo-mobile">
+        <div class="sidebar-logo-mark">🗳</div>
+        VoteChain
+      </div>
+
+      <!-- Tabs -->
+      <div class="auth-tabs">
+        <div class="auth-tab active" onclick="switchAuthTab('login', this)">Đăng nhập</div>
+        <div class="auth-tab" onclick="switchAuthTab('register', this)">Đăng ký</div>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div id="form-login">
+        <div class="auth-heading">Chào mừng trở lại 👋</div>
+        <p class="auth-sub">Đăng nhập để tham gia bầu cử và theo dõi kết quả.</p>
+
+        <div class="field">
+          <label class="field-label">Email</label>
+          <input class="field-input" id="login-email" type="email" placeholder="you@example.com" autocomplete="email"/>
+          <div class="field-err" id="login-email-err">Vui lòng nhập email hợp lệ.</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Mật khẩu</label>
+          <div class="field-input-wrap">
+            <input class="field-input" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"/>
+            <button class="field-toggle" onclick="togglePass('login-pass',this)" tabindex="-1">👁</button>
+          </div>
+          <div class="field-err" id="login-pass-err">Mật khẩu phải từ 6 ký tự.</div>
+        </div>
+        <div class="auth-options">
+          <label class="auth-check"><input type="checkbox" checked/> Nhớ đăng nhập</label>
+          <button class="auth-forgot">Quên mật khẩu?</button>
+        </div>
+        <button class="btn-full primary" id="btn-login" onclick="doLogin()">
+          <span>Đăng nhập</span>
+          <div class="loading-dot"></div>
+        </button>
+        <div class="auth-divider">hoặc</div>
+        <button class="btn-metamask" onclick="loginWithMetaMask()">
+          <span class="metamask-logo">🦊</span>
+          Tiếp tục với MetaMask
+        </button>
+        <div class="auth-switch">
+          Chưa có tài khoản?
+          <button class="auth-switch-link" onclick="switchAuthTab('register', null)">Đăng ký ngay</button>
+        </div>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="form-register" class="hidden">
+        <div class="auth-heading">Tạo tài khoản 🚀</div>
+        <p class="auth-sub">Tham gia VoteChain và thực hiện quyền bầu cử của bạn.</p>
+
+        <div class="field">
+          <label class="field-label">Họ và tên</label>
+          <input class="field-input" id="reg-name" type="text" placeholder="Nguyễn Văn A" autocomplete="name"/>
+          <div class="field-err" id="reg-name-err">Vui lòng nhập họ tên.</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Email</label>
+          <input class="field-input" id="reg-email" type="email" placeholder="you@example.com"/>
+          <div class="field-err" id="reg-email-err">Vui lòng nhập email hợp lệ.</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Mật khẩu</label>
+          <div class="field-input-wrap">
+            <input class="field-input" id="reg-pass" type="password" placeholder="Tối thiểu 8 ký tự"/>
+            <button class="field-toggle" onclick="togglePass('reg-pass',this)" tabindex="-1">👁</button>
+          </div>
+          <div class="field-err" id="reg-pass-err">Mật khẩu phải từ 8 ký tự.</div>
+          <div class="field-hint">Tối thiểu 8 ký tự, bao gồm chữ và số.</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Xác nhận mật khẩu</label>
+          <input class="field-input" id="reg-pass2" type="password" placeholder="Nhập lại mật khẩu"/>
+          <div class="field-err" id="reg-pass2-err">Mật khẩu không khớp.</div>
+        </div>
+        <button class="btn-full primary" id="btn-register" onclick="doRegister()">
+          <span>Tạo tài khoản</span>
+          <div class="loading-dot"></div>
+        </button>
+        <div class="auth-divider">hoặc</div>
+        <button class="btn-metamask" onclick="loginWithMetaMask()">
+          <span class="metamask-logo">🦊</span>
+          Đăng ký với MetaMask
+        </button>
+        <div class="auth-switch">
+          Đã có tài khoản?
+          <button class="auth-switch-link" onclick="switchAuthTab('login', null)">Đăng nhập</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     APP LAYER
+════════════════════════════════════════ -->
+<div id="app-layer">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-mark">🗳</div>
+      <span class="sidebar-logo-text">VoteChain</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Tổng quan</div>
+      <div class="nav-item active" onclick="goTo('dashboard', this)">
+        <div class="nav-icon">📊</div> Dashboard
+      </div>
+
+      <div class="nav-section-label">Bầu cử</div>
+      <div class="nav-item" onclick="goTo('candidates', this)">
+        <div class="nav-icon">👥</div> Ứng cử viên
+      </div>
+      <div class="nav-item" onclick="goTo('voting', this)">
+        <div class="nav-icon">🗳</div> Bỏ phiếu
+        <span class="nav-badge" id="vote-badge">MỞ</span>
+      </div>
+
+      <div class="nav-section-label">Dữ liệu</div>
+      <div class="nav-item" onclick="goTo('transactions', this)">
+        <div class="nav-icon">🔗</div> Giao dịch
+        <span class="nav-badge" id="tx-badge" style="background:var(--emerald)">0</span>
+      </div>
+
+      <div class="nav-section-label">Tài khoản</div>
+      <div class="nav-item" onclick="goTo('settings', this)">
+        <div class="nav-icon">⚙️</div> Cài đặt
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card" id="user-card-sidebar">
+        <div class="user-avatar" id="user-avatar-sb">?</div>
+        <div>
+          <div class="user-name" id="user-name-sb">—</div>
+          <div class="user-role" id="user-role-sb">Cử tri</div>
+        </div>
+        <button class="user-logout" title="Đăng xuất" onclick="doLogout()">⎋</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <button class="topbar-burger" onclick="toggleSidebar()">☰</button>
+    <div class="topbar-breadcrumb" id="topbar-title">Dashboard</div>
+    <div class="topbar-right">
+      <div class="wallet-badge" id="wallet-badge">
+        <div class="wallet-pulse" id="wallet-pulse"></div>
+        <span id="wallet-label">Chưa kết nối</span>
+      </div>
+      <button class="notif-btn" title="Thông báo">
+        🔔
+        <div class="notif-dot"></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub">Tổng quan bầu cử thời gian thực</div>
+        </div>
+        <div class="page-actions">
+          <div class="live-pill"><div class="live-dot"></div> Trực tiếp</div>
+        </div>
+      </div>
+
+      <!-- Wrong network -->
+      <div class="network-banner" id="network-banner">
+        <div class="network-banner-icon">⚠️</div>
+        <div class="network-banner-body flex-1">
+          <h4>Sai mạng blockchain</h4>
+          <p>Bạn đang kết nối <b id="wrong-net-name">Ethereum Mainnet</b>. Chuyển sang <b>Sepolia Testnet</b> để bỏ phiếu.</p>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="switchNetwork()">Chuyển mạng</button>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(124,110,245,.12)">🗳</div>
+          <div class="stat-glow" style="background:var(--violet)"></div>
+          <div class="stat-value" id="ds-total">0</div>
+          <div class="stat-label">Tổng phiếu bầu</div>
+          <div class="stat-change" style="color:var(--emerald)">↑ <span id="ds-total-sub">+3 phút trước</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(34,211,238,.1)">👥</div>
+          <div class="stat-value" id="ds-cands">3</div>
+          <div class="stat-label">Ứng cử viên</div>
+          <div class="stat-change" style="color:var(--text-2)">Phiên #2025</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(16,185,129,.1)">⛓</div>
+          <div class="stat-value" id="ds-block" style="font-size:18px;font-family:var(--mono)">4,821,901</div>
+          <div class="stat-label">Block hiện tại</div>
+          <div class="stat-change" style="color:var(--text-2)">Sepolia Testnet</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(245,158,11,.1)">⏱</div>
+          <div class="stat-value" id="ds-countdown" style="font-size:18px;font-family:var(--mono)">—</div>
+          <div class="stat-label">Thời gian còn lại</div>
+          <div class="stat-change" style="color:var(--text-2)">Hạn: 14/05/2026</div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+
+        <!-- Left: leaderboard + mini chart -->
+        <div style="display:flex;flex-direction:column;gap:20px">
+
+          <!-- Leaderboard -->
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Bảng xếp hạng</div>
+                <div class="card-subtitle">Cập nhật mỗi 7 giây từ on-chain events</div>
+              </div>
+              <span style="font-size:11px;font-family:var(--mono);color:var(--text-3)" id="total-votes-lbl">—</span>
+            </div>
+            <div id="leaderboard-list"></div>
+          </div>
+
+          <!-- Mini bar chart -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Phân bổ phiếu bầu</div>
+            </div>
+            <div class="card-body">
+              <div class="bar-chart-wrap">
+                <div class="bar-chart-axis-area" id="mini-chart"></div>
+              </div>
+              <div id="chart-legend" style="display:flex;flex-wrap:wrap;gap:14px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border-2)"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right: donut + activity -->
+        <div style="display:flex;flex-direction:column;gap:20px">
+
+          <!-- Donut -->
+          <div class="card">
+            <div class="card-header"><div class="card-title">Tỷ lệ phiếu</div></div>
+            <div class="card-body" style="text-align:center">
+              <div class="donut-wrap" id="donut-wrap">
+                <svg class="donut-svg" width="140" height="140" viewBox="0 0 140 140" id="donut-svg">
+                  <circle cx="70" cy="70" r="52" fill="none" stroke="var(--surface-3)" stroke-width="14"/>
+                </svg>
+                <div class="donut-center">
+                  <div class="donut-center-num" id="donut-num">0</div>
+                  <div class="donut-center-lbl">phiếu</div>
+                </div>
+              </div>
+              <div id="donut-legend" style="display:flex;flex-direction:column;gap:8px;text-align:left"></div>
+            </div>
+          </div>
+
+          <!-- Activity feed -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Hoạt động gần đây</div>
+              <div class="live-pill" style="font-size:9px;padding:3px 8px"><div class="live-dot" style="width:5px;height:5px"></div>Live</div>
+            </div>
+            <div id="activity-feed"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CANDIDATES ── -->
+    <div class="page" id="page-candidates">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Ứng cử viên</div>
+          <div class="page-sub">Thông tin chi tiết từng ứng viên</div>
+        </div>
+      </div>
+      <div class="candidates-grid" id="candidates-grid"></div>
+    </div>
+
+    <!-- ── VOTING ── -->
+    <div class="page" id="page-voting">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Bỏ phiếu</div>
+          <div class="page-sub">Thực hiện quyền bầu cử của bạn</div>
+        </div>
+      </div>
+
+      <!-- Phase timeline -->
+      <div class="phase-timeline" id="phase-timeline">
+        <div class="phase-step done">
+          <div class="phase-step-circle">✓</div>
+          <div class="phase-step-label">Chuẩn bị</div>
+        </div>
+        <div class="phase-step active">
+          <div class="phase-step-circle">2</div>
+          <div class="phase-step-label">Đang mở</div>
+        </div>
+        <div class="phase-step">
+          <div class="phase-step-circle">3</div>
+          <div class="phase-step-label">Kiểm phiếu</div>
+        </div>
+        <div class="phase-step">
+          <div class="phase-step-circle">4</div>
+          <div class="phase-step-label">Kết thúc</div>
+        </div>
+      </div>
+
+      <div class="voting-layout">
+
+        <!-- Left: candidate selection -->
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Chọn ứng cử viên</div>
+              <div class="badge badge-emerald">🟢 Đang mở</div>
+            </div>
+            <div class="card-body">
+              <div class="vote-radio-list" id="vote-radio-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: submit panel -->
+        <div>
+          <div class="vote-submit-card">
+            <div class="vote-submit-head">
+              <h3>Xác nhận phiếu bầu</h3>
+              <p>Mỗi ví chỉ được bầu một lần duy nhất</p>
+            </div>
+            <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+
+              <!-- Error states -->
+              <div class="inline-error error-reject" id="err-reject">
+                <div class="inline-error-icon">🚫</div>
+                <div class="inline-error-text">
+                  <h5>Giao dịch bị từ chối</h5>
+                  <p>Bạn đã từ chối ký giao dịch trong MetaMask. Nhấn "Bỏ phiếu" và chấp nhận xác nhận để tiếp tục.</p>
+                </div>
+              </div>
+              <div class="inline-error error-gas" id="err-gas">
+                <div class="inline-error-icon">⛽</div>
+                <div class="inline-error-text">
+                  <h5>Ví không đủ gas</h5>
+                  <p>Số dư ETH trong ví không đủ để trả phí gas. Hãy nạp thêm ETH từ <b>Sepolia Faucet</b> miễn phí.</p>
+                </div>
+              </div>
+              <div class="inline-error error-voted" id="err-voted">
+                <div class="inline-error-icon">ℹ️</div>
+                <div class="inline-error-text">
+                  <h5>Đã bỏ phiếu rồi</h5>
+                  <p>Địa chỉ ví này đã thực hiện bỏ phiếu trong phiên bầu cử hiện tại.</p>
+                </div>
+              </div>
+
+              <!-- Not connected -->
+              <div id="vp-nc" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:12px 0">
+                <div style="font-size:40px">🦊</div>
+                <div style="font-size:15px;font-weight:600">Kết nối ví để bỏ phiếu</div>
+                <div style="font-size:12px;color:var(--text-2)">Cần kết nối MetaMask để ký giao dịch on-chain</div>
+                <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="connectMetaMask()">Kết nối MetaMask</button>
+              </div>
+
+              <!-- Voted -->
+              <div id="vp-voted" class="hidden">
+                <div class="voted-confirm-box" style="margin-bottom:14px">
+                  <div class="voted-check-circle">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7l3.5 3.5 5.5-6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </div>
+                  <div>
+                    <div style="font-size:13px;font-weight:600;color:var(--emerald);margin-bottom:3px">Phiếu đã ghi nhận on-chain</div>
+                    <div style="font-size:12px;color:var(--text-2)">Lá phiếu đã được lưu vĩnh viễn trên Ethereum.</div>
+                  </div>
+                </div>
+                <div style="font-size:11px;color:var(--text-2);margin-bottom:6px">Bạn đã bầu cho</div>
+                <div id="vp-voted-name" style="font-family:var(--display);font-size:20px;font-weight:800;letter-spacing:-.4px;margin-bottom:14px">—</div>
+                <div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r-md);padding:12px 14px;font-family:var(--mono);font-size:11px;color:var(--text-2)">
+                  <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Transaction Hash</div>
+                  <div style="color:var(--violet);word-break:break-all" id="vp-voted-tx">0x...</div>
+                </div>
+              </div>
+
+              <!-- Form -->
+              <div id="vp-form" class="hidden" style="display:flex;flex-direction:column;gap:12px">
+                <div style="font-size:12px;color:var(--text-2);padding:0 1px">Ứng viên đã chọn:</div>
+                <div id="selected-preview" style="padding:13px 16px;border-radius:var(--r-lg);background:var(--surface-2);border:1px solid var(--border);font-size:14px;font-weight:500;color:var(--text-3)">
+                  Chưa chọn ứng viên...
+                </div>
+                <button class="btn btn-primary" id="btn-vote-submit" style="width:100%;justify-content:center;padding:13px;font-size:14px" onclick="submitVote()" disabled>
+                  Bỏ phiếu ngay
+                  <div class="loading-dot" style="width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;animation:spin .7s linear infinite;display:none"></div>
+                </button>
+                <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3)">
+                  ⛽ Gas ước tính ~0.0003 ETH · Ký xác nhận qua MetaMask
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── TRANSACTIONS ── -->
+    <div class="page" id="page-transactions">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Giao dịch</div>
+          <div class="page-sub">Lịch sử bỏ phiếu on-chain</div>
+        </div>
+      </div>
+      <div class="tx-filters">
+        <button class="tx-filter-btn active" onclick="filterTx('all',this)">Tất cả</button>
+        <button class="tx-filter-btn" onclick="filterTx('mine',this)">Của tôi</button>
+      </div>
+      <div class="card">
+        <div style="overflow-x:auto">
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th>Hash</th>
+                <th>Ứng viên</th>
+                <th>Block</th>
+                <th>Thời gian</th>
+                <th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody id="tx-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ── -->
+    <div class="page" id="page-settings">
+      <div class="page-header">
+        <div><div class="page-title">Cài đặt</div><div class="page-sub">Tài khoản & tùy chỉnh</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Hồ sơ</div></div>
+            <div class="card-body">
+              <div class="settings-section">
+                <div class="field">
+                  <label class="field-label">Họ và tên</label>
+                  <input class="field-input" id="set-name" type="text" placeholder="Nguyễn Văn A"/>
+                </div>
+                <div class="field">
+                  <label class="field-label">Email</label>
+                  <input class="field-input" id="set-email" type="email" placeholder="you@example.com"/>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="saveProfile()">Lưu thay đổi</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Blockchain</div></div>
+            <div class="card-body">
+              <div class="settings-row">
+                <div><div class="settings-row-label">Ví MetaMask</div><div class="settings-row-desc" id="set-wallet-addr">Chưa kết nối</div></div>
+                <button class="btn btn-ghost btn-sm" onclick="connectMetaMask()">Kết nối</button>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Thông báo on-chain</div><div class="settings-row-desc">Nhận thông báo khi có phiếu mới</div></div>
+                <label class="toggle-wrap"><input type="checkbox" class="toggle-input" checked/><div class="toggle-slider"></div></label>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Tự động làm mới</div><div class="settings-row-desc">Cập nhật kết quả mỗi 7 giây</div></div>
+                <label class="toggle-wrap"><input type="checkbox" class="toggle-input" checked/><div class="toggle-slider"></div></label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /app-layer -->
+
+<!-- TOAST ROOT -->
+<div id="toast-root"></div>
+
+<!-- ═══════════════════════════════════════
+     JAVASCRIPT — Feature-based modules
+════════════════════════════════════════ -->
+<script>
+/* ╔══════════════════════════════════════════
+   ║ CONSTANTS
+   ╚══════════════════════════════════════════ */
+const COLORS = ['#7c6ef5','#22d3ee','#f59e0b','#10b981','#f43f5e','#a78bfa'];
+const CANDIDATE_COLORS = ['var(--violet)','var(--cyan)','var(--amber)','var(--emerald)','var(--rose)'];
+const END_TIME   = new Date('2026-05-14T23:59:00+07:00').getTime();
+const START_TIME = new Date('2026-05-01T00:00:00+07:00').getTime();
+const BLOCK_START = 4821901;
+
+/* ╔══════════════════════════════════════════
+   ║ STATE — single source of truth
+   ╚══════════════════════════════════════════ */
+const state = {
+  // Auth
+  user: null, // { name, email, avatar }
+  walletStatus: 'not_connected', // not_connected | connected | wrong_network
+  walletAddress: null,
+  // Election
+  candidates: [
+    { id:1, name:'Nguyễn Thị Minh Châu', party:'Đảng Phát triển Bền vững', bio:'Chuyên gia kinh tế, 15 năm kinh nghiệm lập pháp. Tập trung vào phát triển bền vững và chuyển đổi số.', voteCount:12 },
+    { id:2, name:'Trần Hoàng Nam',        party:'Liên minh Đổi mới',         bio:'Doanh nhân và nhà hoạt động cộng đồng. Đề xuất cải cách giáo dục và hạ tầng thông minh.',         voteCount:7  },
+    { id:3, name:'Lê Phương Linh',        party:'Phong trào Dân chủ',        bio:'Luật sư nhân quyền, tiên phong vận động chính sách minh bạch và phân quyền địa phương.',        voteCount:3  },
+  ],
+  logs: [],
+  blockNum: BLOCK_START,
+  hasVoted: false,
+  votedFor: null,
+  selectedCandidateId: null,
+  txFilter: 'all',
+  currentPage: 'dashboard',
+};
+
+/* ╔══════════════════════════════════════════
+   ║ UTILS
+   ╚══════════════════════════════════════════ */
+const utils = {
+  rndHex: n => [...Array(n)].map(()=>Math.floor(Math.random()*16).toString(16)).join(''),
+  rndTx:  () => '0x' + utils.rndHex(8) + '...' + utils.rndHex(4),
+  rndAddr:() => '0x' + utils.rndHex(4) + '...' + utils.rndHex(4),
+  sleep:  ms => new Promise(r => setTimeout(r, ms)),
+  total:  () => state.candidates.reduce((s,c) => s+c.voteCount, 0),
+  getPhase: () => {
+    const n = Date.now();
+    if(n < START_TIME) return 'pending';
+    if(n > END_TIME)   return 'ended';
+    return 'active';
+  },
+  fmtTime: ts => {
+    const d=new Date(ts);
+    return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+  },
+  fmtAddr: a => a ? (a.slice(0,6)+'...'+a.slice(-4)) : '—',
+  candColor: i => COLORS[i % COLORS.length],
+  candInitials: name => name.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase(),
+  validateEmail: e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e),
+};
+
+/* ╔══════════════════════════════════════════
+   ║ TOAST SERVICE
+   ╚══════════════════════════════════════════ */
+const toastIcons = {
+  success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️',
+};
+function showToast(type, title, desc='', duration=4500) {
+  const root = document.getElementById('toast-root');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `
+    <div class="toast-icon-wrap">${toastIcons[type]}</div>
+    <div class="toast-body">
+      <div class="toast-title">${title}</div>
+      ${desc ? `<div class="toast-desc">${desc}</div>` : ''}
+    </div>
+    <div class="toast-close" onclick="this.parentElement.remove()">✕</div>`;
+  root.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('hiding');
+    setTimeout(() => el.remove(), 350);
+  }, duration);
+}
+
+/* ╔══════════════════════════════════════════
+   ║ ERROR SERVICE — friendly errors
+   ╚══════════════════════════════════════════ */
+const errorService = {
+  // Translate blockchain errors to friendly messages
+  classify: (err) => {
+    const msg = (err?.message || err?.reason || '').toLowerCase();
+    if(err?.code === 4001 || err?.code === 'ACTION_REJECTED' || msg.includes('user rejected'))
+      return 'reject';
+    if(msg.includes('insufficient funds') || msg.includes('gas') || msg.includes('outofgas'))
+      return 'gas';
+    if(msg.includes('already voted') || msg.includes('has voted'))
+      return 'voted';
+    return 'generic';
+  },
+
+  showInline: (type) => {
+    ['err-reject','err-gas','err-voted'].forEach(id => {
+      document.getElementById(id).classList.remove('show');
+    });
+    const map = { reject:'err-reject', gas:'err-gas', voted:'err-voted' };
+    if(map[type]) document.getElementById(map[type]).classList.add('show');
+  },
+
+  hideInline: () => {
+    ['err-reject','err-gas','err-voted'].forEach(id => {
+      document.getElementById(id).classList.remove('show');
+    });
+  },
+
+  handleVoteError: (err) => {
+    const type = errorService.classify(err);
+    errorService.showInline(type);
+    const msgs = {
+      reject: { title: 'Bạn đã từ chối giao dịch', desc: 'Mở MetaMask và chấp nhận yêu cầu ký để bỏ phiếu.' },
+      gas:    { title: 'Không đủ ETH cho gas', desc: 'Nạp ETH miễn phí từ Sepolia Faucet tại sepoliafaucet.com.' },
+      voted:  { title: 'Đã bỏ phiếu rồi', desc: 'Mỗi địa chỉ ví chỉ được bỏ phiếu một lần.' },
+      generic:{ title: 'Giao dịch thất bại', desc: err?.message?.slice(0,80) || 'Lỗi không xác định, thử lại sau.' },
+    };
+    const m = msgs[type] || msgs.generic;
+    showToast('error', m.title, m.desc);
+  },
+};
+
+/* ╔══════════════════════════════════════════
+   ║ AUTH MODULE
+   ╚══════════════════════════════════════════ */
+function switchAuthTab(tab, tabEl) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  if(tabEl) tabEl.classList.add('active');
+  else document.querySelectorAll('.auth-tab')[tab==='login'?0:1].classList.add('active');
+  document.getElementById('form-login').classList.toggle('hidden', tab !== 'login');
+  document.getElementById('form-register').classList.toggle('hidden', tab !== 'register');
+}
+
+function togglePass(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function showFieldErr(id, show=true) {
+  const el = document.getElementById(id);
+  if(el) { el.classList.toggle('show', show); }
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  let ok = true;
+
+  showFieldErr('login-email-err', !utils.validateEmail(email));
+  if(!utils.validateEmail(email)) ok = false;
+
+  showFieldErr('login-pass-err', pass.length < 6);
+  if(pass.length < 6) ok = false;
+
+  if(!ok) return;
+
+  const btn = document.getElementById('btn-login');
+  btn.classList.add('loading');
+  await utils.sleep(1200);
+  btn.classList.remove('loading');
+
+  authService.login({ name: email.split('@')[0], email, role: 'Cử tri' });
+}
+
+async function doRegister() {
+  const name  = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass  = document.getElementById('reg-pass').value;
+  const pass2 = document.getElementById('reg-pass2').value;
+  let ok = true;
+
+  showFieldErr('reg-name-err',  !name);             if(!name) ok=false;
+  showFieldErr('reg-email-err', !utils.validateEmail(email)); if(!utils.validateEmail(email)) ok=false;
+  showFieldErr('reg-pass-err',  pass.length<8);     if(pass.length<8) ok=false;
+  showFieldErr('reg-pass2-err', pass!==pass2);       if(pass!==pass2) ok=false;
+
+  if(!ok) return;
+
+  const btn = document.getElementById('btn-register');
+  btn.classList.add('loading');
+  await utils.sleep(1400);
+  btn.classList.remove('loading');
+
+  showToast('success','Đăng ký thành công!','Chào mừng bạn đến với VoteChain.');
+  authService.login({ name, email, role: 'Cử tri' });
+}
+
+async function loginWithMetaMask() {
+  showToast('info','Đang kết nối MetaMask...','Vui lòng xác nhận trong ví của bạn.');
+  await utils.sleep(1000);
+  const addr = '0x' + utils.rndHex(4) + '...' + utils.rndHex(4);
+  authService.login({ name: 'Người dùng MetaMask', email: addr, role: 'Cử tri (Web3)' });
+}
+
+const authService = {
+  login: (user) => {
+    state.user = user;
+    document.getElementById('auth-layer').style.display = 'none';
+    document.getElementById('app-layer').style.display  = 'block';
+    // Populate user info
+    const initials = user.name.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase();
+    document.getElementById('user-avatar-sb').textContent = initials;
+    document.getElementById('user-name-sb').textContent   = user.name;
+    document.getElementById('user-role-sb').textContent   = user.role;
+    document.getElementById('set-name').value  = user.name;
+    document.getElementById('set-email').value = user.email;
+    showToast('success', `Xin chào, ${user.name}!`, 'Đăng nhập thành công.');
+    renderAll();
+    startSimulation();
+  }
+};
+
+function doLogout() {
+  state.user = null;
+  state.walletStatus = 'not_connected';
+  state.walletAddress = null;
+  document.getElementById('app-layer').style.display  = 'none';
+  document.getElementById('auth-layer').style.display = 'flex';
+  showToast('info','Đã đăng xuất');
+}
+
+/* ╔══════════════════════════════════════════
+   ║ WALLET SERVICE
+   ╚══════════════════════════════════════════ */
+async function connectMetaMask() {
+  showToast('info','Đang kết nối MetaMask...','Xác nhận trong ví của bạn.');
+  await utils.sleep(900);
+  const wrong = Math.random() < 0.25;
+  state.walletAddress = '0x3Fa9' + utils.rndHex(4) + 'c9B2';
+  state.walletStatus  = wrong ? 'wrong_network' : 'connected';
+
+  walletUI.update();
+
+  if(wrong) {
+    document.getElementById('network-banner').classList.add('show');
+    showToast('warning','Sai mạng blockchain','Vui lòng chuyển sang Sepolia Testnet để tiếp tục.');
+  } else {
+    document.getElementById('network-banner').classList.remove('show');
+    showToast('success','Ví đã kết nối','Sẵn sàng bỏ phiếu trên Sepolia Testnet.');
+    votingUI.updateConnected();
+  }
+  document.getElementById('set-wallet-addr').textContent = utils.fmtAddr(state.walletAddress);
+}
+
+async function switchNetwork() {
+  await utils.sleep(600);
+  state.walletStatus = 'connected';
+  document.getElementById('network-banner').classList.remove('show');
+  walletUI.update();
+  showToast('success','Đã chuyển sang Sepolia Testnet');
+  votingUI.updateConnected();
+}
+
+const walletUI = {
+  update: () => {
+    const badge = document.getElementById('wallet-badge');
+    const pulse = document.getElementById('wallet-pulse');
+    const label = document.getElementById('wallet-label');
+    badge.className = 'wallet-badge ' + (state.walletStatus === 'connected' ? 'connected' : state.walletStatus === 'wrong_network' ? 'wrong' : '');
+    label.textContent = state.walletStatus === 'connected'
+      ? utils.fmtAddr(state.walletAddress)
+      : state.walletStatus === 'wrong_network' ? 'Sai mạng' : 'Chưa kết nối';
+  }
+};
+
+/* ╔══════════════════════════════════════════
+   ║ NAVIGATION
+   ╚══════════════════════════════════════════ */
+const PAGE_TITLES = {
+  dashboard: 'Dashboard', candidates: 'Ứng cử viên',
+  voting: 'Bỏ phiếu', transactions: 'Giao dịch', settings: 'Cài đặt',
+};
+function goTo(page, navEl) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if(navEl) navEl.classList.add('active');
+  document.getElementById('topbar-title').textContent = PAGE_TITLES[page] || page;
+  state.currentPage = page;
+  // close mobile sidebar
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+/* ╔══════════════════════════════════════════
+   ║ ELECTION DATA SERVICE
+   ╚══════════════════════════════════════════ */
+const electionService = {
+  addVote: (candidateId, isUser=false) => {
+    const c = state.candidates.find(x => x.id === candidateId);
+    if(!c) return;
+    c.voteCount++;
+    state.blockNum++;
+    const entry = {
+      hash: utils.rndTx(),
+      voter: isUser ? state.walletAddress : utils.rndAddr(),
+      candidateId,
+      blockNumber: state.blockNum,
+      ts: Date.now(),
+      isUser,
+    };
+    state.logs.unshift(entry);
+    if(state.logs.length > 50) state.logs.pop();
+    return entry;
+  },
+};
+
+/* ╔══════════════════════════════════════════
+   ║ VOTING UI
+   ╚══════════════════════════════════════════ */
+const votingUI = {
+  updateConnected: () => {
+    if(state.walletStatus !== 'connected') return;
+    document.getElementById('vp-nc').style.display = 'none';
+    if(state.hasVoted) {
+      document.getElementById('vp-voted').classList.remove('hidden');
+      document.getElementById('vp-form').classList.add('hidden');
+    } else {
+      document.getElementById('vp-form').classList.remove('hidden');
+      document.getElementById('vp-form').style.display = 'flex';
+      document.getElementById('vp-voted').classList.add('hidden');
+    }
+  }
+};
+
+function renderVoteRadioList() {
+  const tot = utils.total();
+  const list = document.getElementById('vote-radio-list');
+  if(!list) return;
+  list.innerHTML = state.candidates.map((c,i) => `
+    <div class="vote-radio-card${state.selectedCandidateId===c.id?' selected':''}"
+         onclick="selectCandidate(${c.id}, this)">
+      <div class="vote-radio-check">
+        <div class="vote-radio-dot"></div>
+      </div>
+      <div class="vote-radio-info">
+        <div class="vote-radio-name">${c.name}</div>
+        <div class="vote-radio-party">${c.party}</div>
+      </div>
+      <div class="vote-radio-votes">${c.voteCount} phiếu</div>
+    </div>`).join('');
+}
+
+function selectCandidate(id, el) {
+  state.selectedCandidateId = id;
+  document.querySelectorAll('.vote-radio-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  const cand = state.candidates.find(c => c.id === id);
+  document.getElementById('selected-preview').textContent = cand ? cand.name : '—';
+  document.getElementById('selected-preview').style.color = 'var(--text)';
+  document.getElementById('btn-vote-submit').disabled = false;
+  errorService.hideInline();
+}
+
+/* submitVote được định nghĩa trong phần HARDHAT BACKEND INTEGRATION bên dưới */
+// (placeholder giữ chỗ — không xóa comment này)
+
+function _submitVotePlaceholder_removed() {}
+
+/* ╔══════════════════════════════════════════
+   ║ RENDER ENGINE
+   ╚══════════════════════════════════════════ */
+function renderAll() {
+  renderDashboardStats();
+  renderLeaderboard();
+  renderMiniChart();
+  renderDonut();
+  renderActivityFeed();
+  renderCandidatesGrid();
+  renderVoteRadioList();
+  renderTxTable();
+  updateTxBadge();
+  renderCountdown();
+}
+
+/* ─── Dashboard stats ─── */
+function renderDashboardStats() {
+  const t = utils.total();
+  document.getElementById('ds-total').textContent = t;
+  document.getElementById('ds-cands').textContent = state.candidates.length;
+  document.getElementById('ds-block').textContent = state.blockNum.toLocaleString('vi-VN');
+  document.getElementById('total-votes-lbl').textContent = t + ' phiếu';
+}
+
+/* ─── Leaderboard ─── */
+function renderLeaderboard() {
+  const tot = utils.total();
+  const maxV = Math.max(...state.candidates.map(c => c.voteCount), 1);
+  const sorted = [...state.candidates].sort((a,b) => b.voteCount-a.voteCount);
+  const rankCls = ['rank-gold','rank-silver','rank-bronze','rank-other'];
+
+  document.getElementById('leaderboard-list').innerHTML = sorted.map((c,i) => {
+    const orig = state.candidates.findIndex(x => x.id === c.id);
+    const color = utils.candColor(orig);
+    const pct = tot>0 ? Math.round(c.voteCount/tot*100) : 0;
+    const barW = Math.round(c.voteCount/maxV*100);
+    const initials = utils.candInitials(c.name);
+    return `<div class="leader-row" id="lrow-${c.id}">
+      <div class="leader-rank ${rankCls[i]||'rank-other'}">${i+1}</div>
+      <div class="avatar" style="width:36px;height:36px;border-radius:10px;background:${color}22;color:${color};font-size:12px;border:1px solid ${color}33">${initials}</div>
+      <div class="leader-info">
+        <div class="leader-name">${c.name} ${i===0&&c.voteCount>0?'<span style="font-size:9px;background:rgba(251,191,36,.15);color:var(--gold);padding:1px 7px;border-radius:999px;font-weight:700">★ DẪN ĐẦU</span>':''}</div>
+        <div class="leader-party">${c.party}</div>
+        <div class="progress-wrap" style="margin-top:7px">
+          <div class="progress-fill" style="width:${barW}%;background:${color}"></div>
+        </div>
+      </div>
+      <div class="leader-votes">
+        <div class="leader-votes-num" style="color:${color}">${c.voteCount}</div>
+        <div class="leader-votes-pct">${pct}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ─── Vertical Bar Chart ─── */
+function renderMiniChart() {
+  const tot  = utils.total();
+  const maxV = Math.max(...state.candidates.map(c => c.voteCount), 1);
+  const el   = document.getElementById('mini-chart');
+  const leg  = document.getElementById('chart-legend');
+  el.innerHTML = leg.innerHTML = '';
+
+  // Gridlines
+  const grid = document.createElement('div');
+  grid.className = 'bar-chart-gridlines';
+  [25,50,75,100].forEach(pct => {
+    const line = document.createElement('div');
+    line.style.cssText = `position:absolute;left:0;right:0;bottom:${pct}%;height:1px;background:rgba(255,255,255,.04)`;
+    grid.appendChild(line);
+    const lbl = document.createElement('div');
+    lbl.style.cssText = `position:absolute;right:calc(100% + 4px);bottom:${pct}%;font-size:9px;color:var(--text-3);font-family:var(--mono);transform:translateY(50%);white-space:nowrap`;
+    lbl.textContent = Math.round(maxV * pct/100);
+    grid.appendChild(lbl);
+  });
+  el.appendChild(grid);
+
+  state.candidates.forEach((c, i) => {
+    const hPct = Math.max(Math.round(c.voteCount / maxV * 100), 3);
+    const pct  = tot > 0 ? Math.round(c.voteCount / tot * 100) : 0;
+    const color = utils.candColor(i);
+    const shortName = c.name.split(' ').pop();
+
+    const col = document.createElement('div');
+    col.className = 'bar-chart-col';
+
+    const barWrap = document.createElement('div');
+    barWrap.className = 'bar-chart-bar-wrap';
+    barWrap.style.height = '100%';
+    barWrap.style.alignItems = 'flex-end';
+
+    const bar = document.createElement('div');
+    bar.className = 'bar-chart-bar';
+    bar.setAttribute('data-val', c.voteCount);
+    bar.style.height = '0%'; // animate from 0
+    bar.style.background = `linear-gradient(180deg, ${color} 0%, ${color}88 100%)`;
+    bar.style.boxShadow = `0 0 14px ${color}30`;
+    bar.title = `${c.name}: ${c.voteCount} phiếu (${pct}%)`;
+    barWrap.appendChild(bar);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'bar-chart-label';
+    nameEl.textContent = shortName;
+    nameEl.style.color = color;
+
+    const pctEl = document.createElement('div');
+    pctEl.className = 'bar-chart-pct';
+    pctEl.textContent = pct + '%';
+
+    col.appendChild(barWrap);
+    col.appendChild(nameEl);
+    col.appendChild(pctEl);
+    el.appendChild(col);
+
+    // Animate bar height after paint
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { bar.style.height = hPct + '%'; });
+    });
+
+    // Legend
+    const li = document.createElement('div');
+    li.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)';
+    li.innerHTML = `<div style="width:10px;height:10px;border-radius:3px;background:${color}"></div>
+      <span>${c.name}</span>
+      <span style="color:${color};font-weight:600;font-family:var(--mono)">${c.voteCount}</span>`;
+    leg.appendChild(li);
+  });
+}
+
+/* ─── Donut chart ─── */
+function renderDonut() {
+  const tot = utils.total();
+  document.getElementById('donut-num').textContent = tot;
+  const svg = document.getElementById('donut-svg');
+  const R = 52, C = 2*Math.PI*R;
+  // Remove old arcs
+  svg.querySelectorAll('.donut-arc').forEach(a => a.remove());
+  let offset = 0;
+  state.candidates.forEach((c,i) => {
+    const pct = tot>0 ? c.voteCount/tot : 0;
+    const dash = pct*C;
+    const arc = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    arc.setAttribute('cx','70'); arc.setAttribute('cy','70'); arc.setAttribute('r',String(R));
+    arc.setAttribute('fill','none'); arc.setAttribute('stroke',utils.candColor(i));
+    arc.setAttribute('stroke-width','14');
+    arc.setAttribute('stroke-dasharray',`${dash} ${C-dash}`);
+    arc.setAttribute('stroke-dashoffset',String(-offset));
+    arc.setAttribute('class','donut-arc');
+    svg.appendChild(arc);
+    offset += dash;
+  });
+  // Donut legend
+  document.getElementById('donut-legend').innerHTML = state.candidates.map((c,i)=>{
+    const pct = tot>0 ? Math.round(c.voteCount/tot*100) : 0;
+    return `<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border-2)">
+      <div style="width:10px;height:10px;border-radius:50%;background:${utils.candColor(i)};flex-shrink:0"></div>
+      <div style="flex:1;font-size:12px">${c.name.split(' ').pop()}</div>
+      <div style="font-size:12px;font-weight:600;color:${utils.candColor(i)}">${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+/* ─── Activity feed ─── */
+function renderActivityFeed() {
+  const feed = document.getElementById('activity-feed');
+  if(!state.logs.length) {
+    feed.innerHTML='<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-3)">Chưa có hoạt động.</div>';
+    return;
+  }
+  feed.innerHTML = state.logs.slice(0,6).map(l => {
+    const ci = state.candidates.findIndex(c => c.id===l.candidateId);
+    const color = utils.candColor(ci);
+    const cname = state.candidates[ci]?.name || 'Unknown';
+    return `<div class="activity-item">
+      <div class="activity-dot" style="background:${color}"></div>
+      <div style="flex:1">
+        <div class="activity-text">${utils.fmtAddr(l.voter)} bầu cho <b>${cname.split(' ').pop()}</b></div>
+        <div class="activity-time">${utils.fmtTime(l.ts)} · block #${l.blockNumber}</div>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text-3)">${l.hash.slice(0,12)}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ─── Candidates grid ─── */
+function renderCandidatesGrid() {
+  const tot = utils.total();
+  const maxV = Math.max(...state.candidates.map(c=>c.voteCount),1);
+  const sorted = [...state.candidates].sort((a,b)=>b.voteCount-a.voteCount);
+  const rankLabels=['1st','2nd','3rd'];
+  const rankColors=['var(--gold)','#94a3b8','#b47846'];
+  document.getElementById('candidates-grid').innerHTML = sorted.map((c,i)=>{
+    const orig = state.candidates.findIndex(x=>x.id===c.id);
+    const color = utils.candColor(orig);
+    const pct = tot>0 ? Math.round(c.voteCount/tot*100) : 0;
+    const barW = Math.round(c.voteCount/maxV*100);
+    const initials = utils.candInitials(c.name);
+    return `<div class="candidate-card" id="ccard-${c.id}">
+      <div class="candidate-card-top">
+        <div class="cand-avatar-wrap">
+          <div class="cand-avatar-img" style="background:${color}22;color:${color};border:1px solid ${color}33">${initials}</div>
+          <div class="cand-rank-badge" style="background:${rankColors[i]||'var(--surface-3)'};color:${i<3?'var(--navy-900)':'var(--text-3)'}">${rankLabels[i]||i+1}</div>
+        </div>
+        <span class="badge ${i===0&&c.voteCount>0?'badge-amber':'badge-violet'}">${i===0&&c.voteCount>0?'★ Dẫn đầu':'Ứng viên'}</span>
+      </div>
+      <div class="cand-name">${c.name}</div>
+      <div class="cand-party">${c.party}</div>
+      <div class="cand-votes-big" style="color:${color}">${c.voteCount}</div>
+      <div style="font-size:11px;color:var(--text-2);margin-bottom:8px">phiếu bầu</div>
+      <div class="progress-wrap"><div class="progress-fill" style="width:${barW}%;background:${color}"></div></div>
+      <div class="cand-bar-label"><span>${pct}% tổng phiếu</span><span>${c.voteCount}/${tot}</span></div>
+      <div class="cand-desc">${c.bio}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ─── Transactions table ─── */
+function renderTxTable() {
+  const filtered = state.txFilter === 'mine'
+    ? state.logs.filter(l => l.isUser)
+    : state.logs;
+  const tbody = document.getElementById('tx-table-body');
+  if(!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-3)">Chưa có giao dịch nào.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.slice(0,20).map(l => {
+    const ci = state.candidates.findIndex(c=>c.id===l.candidateId);
+    const color = utils.candColor(ci);
+    const cname = state.candidates[ci]?.name || 'Unknown';
+    return `<tr>
+      <td><span class="tx-hash-link">${l.hash}</span></td>
+      <td><span class="badge badge-violet" style="background:${color}15;color:${color}">${cname.split(' ').pop()}</span></td>
+      <td><span class="tx-block">#${l.blockNumber}</span></td>
+      <td><span class="tx-voter">${utils.fmtTime(l.ts)}</span></td>
+      <td><span class="badge badge-emerald">✓ Confirmed</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTx(f, btn) {
+  state.txFilter = f;
+  document.querySelectorAll('.tx-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTxTable();
+}
+
+function updateTxBadge() {
+  document.getElementById('tx-badge').textContent = state.logs.length;
+}
+
+/* ─── Countdown ─── */
+function renderCountdown() {
+  const now = Date.now(), phase = utils.getPhase();
+  const target = phase==='active' ? END_TIME : phase==='pending' ? START_TIME : null;
+  const ds = document.getElementById('ds-countdown');
+  if(!target) { ds.textContent = phase==='ended'?'KẾT THÚC':'—'; return; }
+  const diff = Math.max(0, target-now);
+  const h = Math.floor(diff/3600000), m = Math.floor(diff%3600000/60000), s = Math.floor(diff%60000/1000);
+  ds.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+/* ╔══════════════════════════════════════════════════════
+   ║  HARDHAT BACKEND INTEGRATION
+   ║  Contract: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+   ║  Network : Hardhat Local (chainId 31337)
+   ║
+   ║  2 chế độ hoạt động:
+   ║    • REAL MODE  — ethers.js v6 + MetaMask + contract thật
+   ║    • DEMO MODE  — dữ liệu giả lập (fallback khi mất kết nối)
+   ╚══════════════════════════════════════════════════════ */
+
+/* ── ① CONTRACT ADDRESS (từ deploy output) ── */
+const CONTRACT_ADDRESS = "0x6aD9F3bE4D22dB0059AE2AbA25ff97369615517C"
+
+/* ── ② ABI CHÍNH XÁC từ artifacts Hardhat ── */
+const VOTING_ABI = [
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" }
+    ],
+    "name": "votedEvent",
+    "type": "event"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "candidates",
+    "outputs": [
+      { "internalType": "uint256", "name": "id",        "type": "uint256" },
+      { "internalType": "string",  "name": "name",      "type": "string"  },
+      { "internalType": "uint256", "name": "voteCount", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "candidatesCount",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "_candidateId", "type": "uint256" }],
+    "name": "vote",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "voters",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+/* ── ③ NETWORK CONFIG ── */
+const NETWORK_CONFIG = {
+  local: {
+    chainId:     31337,
+    chainIdHex:  '0x7A69',
+    name:        'Hardhat Local',
+    rpcUrl:      'http://127.0.0.1:8545',
+    currency:    'ETH',
+    explorerUrl: '',
+  },
+  sepolia: {
+    chainId:     11155111,
+    chainIdHex:  '0xAA36A7',
+    name:        'Sepolia Testnet',
+    rpcUrl:      'https://rpc.sepolia.org',
+    currency:    'ETH',
+    explorerUrl: 'https://sepolia.etherscan.io',
+  },
+};
+
+/* Chọn mạng mặc định (local khi dev, sepolia khi production) */
+const ACTIVE_NETWORK = NETWORK_CONFIG.sepolia;
+
+/* ── ④ WEB3 SERVICE ── */
+const web3Service = {
+  provider:   null,
+  signer:     null,
+  contract:   null,
+  isDemoMode: true,
+  currentChainId: null,
+
+  /* Kiểm tra MetaMask */
+  hasMetaMask: () => typeof window.ethereum !== 'undefined',
+
+  /* Lấy chainId hiện tại */
+  getChainId: async () => {
+    const hex = await window.ethereum.request({ method: 'eth_chainId' });
+    return parseInt(hex, 16);
+  },
+
+  /* Kết nối ví + contract */
+  connect: async () => {
+    if(typeof ethers === 'undefined') {
+      console.warn('[VoteChain] ethers.js chưa load — fallback demo');
+      return { ok: false, reason: 'no-ethers' };
+    }
+    if(!web3Service.hasMetaMask()) {
+      return { ok: false, reason: 'no-metamask' };
+    }
+
+    try {
+      /* 1. Yêu cầu accounts */
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if(!accounts || !accounts.length) return { ok: false, reason: 'no-accounts' };
+
+      /* 2. Kiểm tra network */
+      web3Service.currentChainId = await web3Service.getChainId();
+      const isCorrectNet = (web3Service.currentChainId === ACTIVE_NETWORK.chainId);
+
+      /* 3. Tạo provider & signer (ethers v6) */
+      web3Service.provider = new ethers.BrowserProvider(window.ethereum);
+      web3Service.signer   = await web3Service.provider.getSigner();
+
+      /* 4. Khởi tạo contract instance */
+      web3Service.contract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        VOTING_ABI,
+        web3Service.signer
+      );
+
+      /* 5. Cập nhật state */
+      state.walletAddress = accounts[0];
+      state.walletStatus  = isCorrectNet ? 'connected' : 'wrong_network';
+
+      if(!isCorrectNet) {
+        return { ok: false, reason: 'wrong-network', chainId: web3Service.currentChainId };
+      }
+
+      /* 6. Load dữ liệu từ contract */
+      web3Service.isDemoMode = false;
+      await web3Service.loadCandidates();
+      await web3Service.checkVotedStatus(accounts[0]);
+
+      /* 7. Lắng nghe votedEvent */
+      web3Service.listenVotedEvent();
+
+      return { ok: true, address: accounts[0] };
+
+    } catch(err) {
+      console.error('[VoteChain] connect():', err);
+      return { ok: false, reason: 'error', err };
+    }
+  },
+
+  /* Load candidates từ contract.candidates(id) */
+  loadCandidates: async () => {
+    if(!web3Service.contract) return;
+    try {
+      /* candidatesCount() → uint256 */
+      const countBig = await web3Service.contract.candidatesCount();
+      const count    = Number(countBig); // ethers v6: bigint → Number
+
+      if(count === 0) {
+        showToast('warning','Contract chưa có ứng viên','Owner cần thêm ứng viên vào contract.');
+        return;
+      }
+
+      const loaded = [];
+      for(let i = 1; i <= count; i++) {
+        /*
+         * candidates(uint256) returns (uint256 id, string name, uint256 voteCount)
+         * ethers v6 trả về object với named properties
+         */
+        const c = await web3Service.contract.candidates(i);
+        loaded.push({
+          id:        Number(c.id),
+          name:      c.name,
+          party:     '',          // contract không có party → để trống
+          bio:       `Ứng cử viên #${i} on-chain · ${Number(c.voteCount)} phiếu`,
+          voteCount: Number(c.voteCount),
+        });
+      }
+
+      state.candidates = loaded;
+      console.log(`[VoteChain] Loaded ${count} candidates from contract`);
+
+    } catch(err) {
+      console.error('[VoteChain] loadCandidates():', err);
+      showToast('error','Lỗi tải danh sách ứng viên', err?.reason || err?.message?.slice(0,60) || '');
+    }
+  },
+
+  /* Kiểm tra voters(address) → bool */
+  checkVotedStatus: async (address) => {
+    if(!web3Service.contract) return;
+    try {
+      /* voters(address) returns (bool) */
+      state.hasVoted = await web3Service.contract.voters(address);
+      if(state.hasVoted) {
+        state.votedFor = { name: '(đã bỏ phiếu trước đó)' };
+        document.getElementById('vp-voted-name').textContent = state.votedFor.name;
+        document.getElementById('vp-voted-tx').textContent   = 'Đã được ghi nhận on-chain';
+      }
+    } catch(err) {
+      console.warn('[VoteChain] checkVotedStatus():', err);
+    }
+  },
+
+  /* Gọi vote(uint256 _candidateId) */
+  vote: async (candidateId) => {
+    if(!web3Service.contract) throw new Error('Contract chưa kết nối');
+    /*
+     * vote() là nonpayable → tạo transaction → cần MetaMask ký
+     * candidateId phải là number hoặc bigint
+     */
+    const tx = await web3Service.contract.vote(candidateId);
+    /* Chờ transaction confirm (1 block) */
+    const receipt = await tx.wait(1);
+    return { hash: tx.hash, receipt };
+  },
+
+  /* Lắng nghe event votedEvent(uint256 indexed candidateId) */
+  listenVotedEvent: () => {
+    if(!web3Service.contract) return;
+
+    /* Xóa listeners cũ trước */
+    web3Service.contract.removeAllListeners('votedEvent');
+
+    web3Service.contract.on('votedEvent', async (candidateId, event) => {
+      const id = Number(candidateId);
+      console.log(`[VoteChain] votedEvent: candidateId=${id}`);
+
+      /* Reload voteCount từ chain để chính xác */
+      try {
+        const c    = await web3Service.contract.candidates(id);
+        const cand = state.candidates.find(x => x.id === id);
+        if(cand) cand.voteCount = Number(c.voteCount);
+      } catch(e) {
+        /* Fallback: tăng local */
+        const cand = state.candidates.find(x => x.id === id);
+        if(cand) cand.voteCount++;
+      }
+
+      /* Lấy block info từ event */
+      const blockNum = event?.log?.blockNumber
+        ? Number(event.log.blockNumber)
+        : ++state.blockNum;
+      const txHash = event?.log?.transactionHash || utils.rndTx();
+
+      /* Thêm vào tx log */
+      const entry = {
+        hash:        txHash,
+        voter:       utils.rndAddr(), // on-chain voter addr cần decode event nếu muốn chính xác
+        candidateId: id,
+        blockNumber: blockNum,
+        ts:          Date.now(),
+        isUser:      false,
+      };
+      state.logs.unshift(entry);
+      if(state.logs.length > 50) state.logs.pop();
+      state.blockNum = Math.max(state.blockNum, blockNum);
+
+      renderAll();
+      _flashRow(id);
+    });
+
+    console.log('[VoteChain] votedEvent listener đang hoạt động ✓');
+  },
+
+  /* Chuyển mạng về Hardhat Local */
+  switchToActiveNetwork: async () => {
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: ACTIVE_NETWORK.chainIdHex }],
+      });
+    } catch(err) {
+      if(err.code === 4902) {
+        /* Network chưa được thêm vào MetaMask */
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId:           ACTIVE_NETWORK.chainIdHex,
+            chainName:         ACTIVE_NETWORK.name,
+            nativeCurrency:    { name:'ETH', symbol:'ETH', decimals:18 },
+            rpcUrls:           [ACTIVE_NETWORK.rpcUrl],
+            blockExplorerUrls: ACTIVE_NETWORK.explorerUrl ? [ACTIVE_NETWORK.explorerUrl] : [],
+          }],
+        });
+      } else {
+        throw err;
+      }
+    }
+  },
+
+  /* Cleanup */
+  cleanup: () => {
+    if(web3Service.contract) web3Service.contract.removeAllListeners();
+    web3Service.contract   = null;
+    web3Service.provider   = null;
+    web3Service.signer     = null;
+    web3Service.isDemoMode = true;
+  },
+};
+
+/* ── HELPER: flash row & card ── */
+function _flashRow(id) {
+  const row  = document.getElementById('lrow-'  + id);
+  const card = document.getElementById('ccard-' + id);
+  if(row)  { row.style.background  = 'rgba(124,110,245,.15)'; setTimeout(()=>row.style.background='', 1000); }
+  if(card) { card.classList.add('cand-flash'); setTimeout(()=>card.classList.remove('cand-flash'), 1000); }
+}
+
+/* ── ⑤ connectMetaMask ── */
+async function connectMetaMask() {
+  /* 1. Kiểm tra file:// protocol — Chrome chặn window.ethereum trên file:// */
+  if(window.location.protocol === 'file:') {
+    showToast('error',
+      'Không thể kết nối từ file://',
+      'Mở file bằng Live Server hoặc chạy: npx serve . rồi truy cập http://localhost:3000'
+    );
+    /* Hiện hướng dẫn chi tiết */
+    _showFileProtocolGuide();
+    return;
+  }
+
+  /* 2. Kiểm tra MetaMask */
+  if(!web3Service.hasMetaMask()) {
+    showToast('error',
+      'MetaMask chưa được cài đặt',
+      'Tải tại metamask.io → cài extension → mở lại trang.'
+    );
+    return;
+  }
+
+  /* 3. Đảm bảo ethers.js đã load */
+  if(typeof ethers === 'undefined') {
+    showToast('info','Đang tải ethers.js...','Tự động thử lại sau 2 giây.');
+    setTimeout(connectMetaMask, 2000);
+    return;
+  }
+
+  showToast('info','Đang kết nối MetaMask...','Xác nhận yêu cầu trong cửa sổ MetaMask của bạn.');
+
+  const result = await web3Service.connect();
+
+  if(result.ok) {
+    document.getElementById('network-banner').classList.remove('show');
+    walletUI.update();
+    votingUI.updateConnected();
+    renderAll();
+    document.getElementById('set-wallet-addr').textContent = utils.fmtAddr(state.walletAddress);
+    showToast('success','Kết nối on-chain thành công!',
+      `${ACTIVE_NETWORK.name} · ${utils.fmtAddr(state.walletAddress)}`);
+
+  } else if(result.reason === 'wrong-network') {
+    walletUI.update();
+    document.getElementById('network-banner').classList.add('show');
+    document.getElementById('wrong-net-name').textContent = `Chain ID ${result.chainId}`;
+    showToast('warning','Sai mạng blockchain',
+      `Bạn đang ở chain ${result.chainId}. Cần chuyển sang ${ACTIVE_NETWORK.name} (chainId ${ACTIVE_NETWORK.chainId}).`);
+
+  } else if(result.reason === 'no-metamask') {
+    showToast('error','MetaMask chưa được cài đặt','Tải tại metamask.io');
+
+  } else if(result.reason === 'error') {
+    const err = result.err;
+    if(err?.code === 4001 || err?.code === 'ACTION_REJECTED') {
+      showToast('warning','Bạn đã hủy kết nối','Nhấn "Kết nối MetaMask" và chấp nhận yêu cầu.');
+    } else {
+      /* Contract chưa deploy hoặc lỗi khác → fallback demo */
+      state.walletStatus  = 'connected';
+      state.walletAddress = '0xDemo' + utils.rndHex(4);
+      walletUI.update();
+      votingUI.updateConnected();
+      document.getElementById('set-wallet-addr').textContent = utils.fmtAddr(state.walletAddress);
+      showToast('info','Chạy ở Demo Mode',
+        'Ví kết nối OK nhưng contract chưa deploy. Chạy: npx hardhat node');
+    }
+
+  } else if(result.reason === 'no-ethers') {
+  showToast('error','Không tải được ethers.js','Cần tải ethers.js để kết nối contract thật.');
+  }
+}
+
+/* Hiện modal hướng dẫn khi chạy file:// */
+function _showFileProtocolGuide() {
+  const existing = document.getElementById('file-protocol-modal');
+  if(existing) { existing.style.display='flex'; return; }
+
+  const modal = document.createElement('div');
+  modal.id = 'file-protocol-modal';
+  modal.style.cssText = `
+    position:fixed;inset:0;z-index:9999;
+    background:rgba(0,0,0,.8);backdrop-filter:blur(8px);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  `;
+  modal.innerHTML = `
+    <div style="
+      background:#0d1422;border:1px solid rgba(255,255,255,.1);
+      border-radius:20px;padding:36px;max-width:520px;width:100%;
+      box-shadow:0 24px 64px rgba(0,0,0,.6);
+    ">
+      <div style="font-size:40px;text-align:center;margin-bottom:16px">⚠️</div>
+      <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;text-align:center;margin-bottom:8px;letter-spacing:-.5px">
+        Cần mở bằng HTTP Server
+      </h2>
+      <p style="font-size:13px;color:#8fa3c0;text-align:center;margin-bottom:28px;line-height:1.6">
+        Chrome chặn MetaMask trên <code style="background:#1a2640;padding:2px 6px;border-radius:4px;color:#7c6ef5">file://</code>.
+        Bạn cần phục vụ file qua HTTP để kết nối ví.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
+
+        <div style="background:#131d30;border:1px solid rgba(124,110,245,.3);border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#7c6ef5;margin-bottom:10px">
+            🏆 Cách 1 — VS Code Live Server (dễ nhất)
+          </div>
+          <ol style="font-size:12px;color:#8fa3c0;line-height:2;padding-left:16px;margin:0">
+            <li>Mở <b style="color:#e8f0fa">VS Code</b></li>
+            <li>Cài extension <b style="color:#e8f0fa">"Live Server"</b> của Ritwick Dey</li>
+            <li>Mở file <code style="color:#22d3ee">votechain-app.html</code></li>
+            <li>Click chuột phải → <b style="color:#e8f0fa">"Open with Live Server"</b></li>
+            <li>Truy cập <code style="color:#22d3ee">http://127.0.0.1:5500/votechain-app.html</code></li>
+          </ol>
+        </div>
+
+        <div style="background:#131d30;border:1px solid rgba(34,211,238,.2);border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#22d3ee;margin-bottom:10px">
+            🚀 Cách 2 — Terminal (cần Node.js)
+          </div>
+          <div style="background:#080c14;border-radius:8px;padding:12px;font-family:'DM Mono',monospace;font-size:12px;color:#e8f0fa;line-height:2">
+            <span style="color:#8fa3c0"># Mở terminal tại thư mục chứa file</span><br>
+            <span style="color:#7c6ef5">npx</span> serve .<br>
+            <span style="color:#8fa3c0"># → Mở http://localhost:3000</span>
+          </div>
+        </div>
+
+        <div style="background:#131d30;border:1px solid rgba(16,185,129,.2);border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#10b981;margin-bottom:10px">
+            🐍 Cách 3 — Python (nếu đã cài)
+          </div>
+          <div style="background:#080c14;border-radius:8px;padding:12px;font-family:'DM Mono',monospace;font-size:12px;color:#e8f0fa;line-height:2">
+            python -m http.server 8080<br>
+            <span style="color:#8fa3c0"># → Mở http://localhost:8080</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('file-protocol-modal').style.display='none'"
+          style="flex:1;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:transparent;color:#8fa3c0;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer">
+          Đóng
+        </button>
+        <button onclick="window.open('https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer','_blank')"
+          style="flex:2;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#7c6ef5,#5c4fd4);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer">
+          Tải Live Server Extension →
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if(e.target===modal) modal.style.display='none'; });
+}
+
+/* ── ⑥ switchNetwork (ghi đè hàm cũ) ── */
+async function switchNetwork() {
+  try {
+    showToast('info','Đang chuyển mạng...','');
+    await web3Service.switchToActiveNetwork();
+    /* chainChanged event sẽ reload trang tự động */
+  } catch(err) {
+    showToast('error','Không thể chuyển mạng', err?.message?.slice(0,80) || '');
+  }
+}
+
+/* ── ⑦ submitVote (ghi đè, dùng ABI thật) ── */
+async function submitVote() {
+  if(!state.selectedCandidateId) {
+    showToast('warning','Chưa chọn ứng viên','Vui lòng chọn một ứng cử viên trước khi bỏ phiếu.');
+    return;
+  }
+  errorService.hideInline();
+
+  const btn  = document.getElementById('btn-vote-submit');
+  const dot  = btn.querySelector('.loading-dot');
+  const span = btn.querySelector('span');
+
+  /* Set loading state */
+  btn.disabled = true;
+  if(span) span.style.display = 'none';
+  dot.style.display = 'block';
+
+  try {
+    let txHash = '';
+    let blockNum = state.blockNum;
+
+    if(!web3Service.isDemoMode && web3Service.contract) {
+      /* ══════════════════════════════════
+         REAL ON-CHAIN TRANSACTION
+         ══════════════════════════════════ */
+      showToast('info','Xác nhận trong MetaMask...','Ký giao dịch để ghi phiếu bầu lên blockchain.');
+
+      const { hash, receipt } = await web3Service.vote(state.selectedCandidateId);
+      txHash   = hash;
+      blockNum = Number(receipt.blockNumber);
+      state.blockNum = blockNum;
+
+      /* Reload voteCount chính xác từ chain */
+      await web3Service.loadCandidates();
+
+    } else {
+      /* ══════════════════════════════════
+         DEMO MODE (giả lập)
+         ══════════════════════════════════ */
+      await utils.sleep(1400);
+
+      /* Giả lập lỗi để test UI error handling */
+      const roll = Math.random();
+      if(roll < 0.12) throw { code: 4001, message: 'user rejected transaction' };
+      if(roll < 0.20) throw { message: 'insufficient funds for intrinsic transaction cost' };
+
+      txHash = utils.rndTx();
+      state.blockNum++;
+      blockNum = state.blockNum;
+
+      const cand = state.candidates.find(x => x.id === state.selectedCandidateId);
+      if(cand) cand.voteCount++;
+    }
+
+    /* ── Success path (chung cho cả 2 mode) ── */
+    const votedCand = state.candidates.find(x => x.id === state.selectedCandidateId);
+
+    const logEntry = {
+      hash:        txHash,
+      voter:       state.walletAddress || utils.rndAddr(),
+      candidateId: state.selectedCandidateId,
+      blockNumber: blockNum,
+      ts:          Date.now(),
+      isUser:      true,
+    };
+    state.logs.unshift(logEntry);
+    if(state.logs.length > 50) state.logs.pop();
+
+    state.hasVoted = true;
+    state.votedFor = votedCand;
+
+    /* Cập nhật UI voted state */
+    document.getElementById('vp-voted-name').textContent = votedCand?.name || '—';
+    document.getElementById('vp-voted-tx').textContent   = txHash;
+    document.getElementById('vp-form').style.display     = 'none';
+    document.getElementById('vp-voted').classList.remove('hidden');
+
+    renderAll();
+    _flashRow(state.selectedCandidateId);
+
+    showToast('success',
+      '🎉 Phiếu bầu đã được ghi nhận!',
+      `Block #${blockNum} · TX: ${txHash.slice(0,14)}...`
+    );
+
+    /* Nếu có explorer, gợi ý link */
+    if(ACTIVE_NETWORK.explorerUrl && txHash.startsWith('0x')) {
+      setTimeout(() => {
+        showToast('info','Xem giao dịch trên explorer',
+          `${ACTIVE_NETWORK.explorerUrl}/tx/${txHash}`);
+      }, 2000);
+    }
+
+  } catch(err) {
+    /* ── Error handling ── */
+    dot.style.display = 'none';
+    btn.disabled = false;
+    if(span) span.style.display = '';
+    errorService.handleVoteError(err);
+  }
+}
+
+/* ── ⑧ MetaMask event handlers ── */
+if(typeof window.ethereum !== 'undefined') {
+  /* Thay đổi account */
+  window.ethereum.on('accountsChanged', async (accounts) => {
+    if(!accounts.length) {
+      /* Ngắt kết nối */
+      web3Service.cleanup();
+      state.walletStatus  = 'not_connected';
+      state.walletAddress = null;
+      state.hasVoted      = false;
+      state.votedFor      = null;
+      walletUI.update();
+
+      /* Reset voting UI về not-connected */
+      document.getElementById('vp-nc').style.display   = '';
+      document.getElementById('vp-form').style.display = 'none';
+      document.getElementById('vp-voted').classList.add('hidden');
+
+      showToast('warning','Ví đã ngắt kết nối','Kết nối lại MetaMask để tiếp tục.');
+      return;
+    }
+
+    /* Account đổi sang account mới */
+    const newAddr = accounts[0];
+    state.walletAddress = newAddr;
+    state.hasVoted      = false;
+    state.votedFor      = null;
+    state.selectedCandidateId = null;
+
+    walletUI.update();
+    document.getElementById('acctAddr').textContent       = utils.fmtAddr(newAddr);
+    document.getElementById('set-wallet-addr').textContent = utils.fmtAddr(newAddr);
+
+    /* Kiểm tra account mới đã vote chưa */
+    if(web3Service.contract) {
+      await web3Service.checkVotedStatus(newAddr);
+    }
+
+    votingUI.updateConnected();
+    renderAll();
+    showToast('info','Đã đổi tài khoản',`${utils.fmtAddr(newAddr)}`);
+  });
+
+  /* Thay đổi chain → reload */
+  window.ethereum.on('chainChanged', (chainId) => {
+    const newChainId = parseInt(chainId, 16);
+    console.log(`[VoteChain] chainChanged → ${newChainId}`);
+    showToast('info','Mạng đã thay đổi','Đang tải lại ứng dụng...');
+    setTimeout(() => location.reload(), 1200);
+  });
+}
+
+/* ── ⑨ SIMULATION (chỉ demo mode, tắt khi real contract active) ── */
+function startSimulation() {
+  const simId = setInterval(() => {
+    /* Tắt simulation khi đã kết nối contract thật */
+    if(!web3Service.isDemoMode) {
+      clearInterval(simId);
+      console.log('[VoteChain] Simulation stopped — real contract connected');
+      return;
+    }
+    if(utils.getPhase() !== 'active' || state.candidates.length === 0) return;
+
+    const c = state.candidates[Math.floor(Math.random() * state.candidates.length)];
+    c.voteCount++;
+    state.blockNum++;
+
+    const entry = {
+      hash:        utils.rndTx(),
+      voter:       utils.rndAddr(),
+      candidateId: c.id,
+      blockNumber: state.blockNum,
+      ts:          Date.now(),
+      isUser:      false,
+    };
+    state.logs.unshift(entry);
+    if(state.logs.length > 50) state.logs.pop();
+
+    renderAll();
+    _flashRow(c.id);
+  }, 7000);
+
+  /* Countdown timer */
+  setInterval(renderCountdown, 1000);
+}
+
+/* ── ⑩ Load ethers.js v6 từ CDN (bất đồng bộ) ── */
+(function loadEthers() {
+  const s   = document.createElement('script');
+  s.src     = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js';
+  s.async   = true;
+  s.onload  = () => {
+    console.log('[VoteChain] ✓ ethers.js v6 loaded');
+    /* Nếu MetaMask đã có (người dùng đã approve trước), tự kết nối */
+    if(window.ethereum && state.user) {
+      window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
+        if(accounts?.length) {
+          connectMetaMask();
+        }
+      }).catch(()=>{});
+    }
+  };
+  s.onerror = () => {
+    console.warn('[VoteChain] ✗ ethers.js CDN failed — demo mode only');
+  };
+  document.head.appendChild(s);
+})();
+
+/* ╔══════════════════════════════════════════
+   ║ SETTINGS
+   ╚══════════════════════════════════════════ */
+function saveProfile() {
+  const name  = document.getElementById('set-name').value.trim();
+  const email = document.getElementById('set-email').value.trim();
+  if(!name || !utils.validateEmail(email)) {
+    showToast('error','Thông tin không hợp lệ','Kiểm tra lại tên và email.');
+    return;
+  }
+  if(state.user) { state.user.name=name; state.user.email=email; }
+  document.getElementById('user-name-sb').textContent = name;
+  showToast('success','Đã lưu thay đổi','Thông tin tài khoản đã được cập nhật.');
+}
+
+/* ╔══════════════════════════════════════════
+   ║ SEED DEMO DATA
+   ╚══════════════════════════════════════════ */
+(function seedDemoLogs() {
+  const seeds = [
+    {candidateId:1,voter:'0xab3f...9c12',blockNumber:BLOCK_START-3,ts:Date.now()-540000},
+    {candidateId:2,voter:'0x77ea...3d01',blockNumber:BLOCK_START-2,ts:Date.now()-280000},
+    {candidateId:3,voter:'0xf20c...8a44',blockNumber:BLOCK_START-1,ts:Date.now()-140000},
+  ];
+  seeds.forEach(l => state.logs.push({hash:utils.rndTx(),...l}));
+})();
+</script>
+<script>
+
+let metaMaskConnectPromise = null;
+const REQUIRE_ACTIVE_NETWORK = true;
+
+function getMetaMaskProvider() {
+  if (!window.ethereum) return null;
+  if (Array.isArray(window.ethereum.providers)) {
+    return window.ethereum.providers.find((p) => p.isMetaMask) || window.ethereum.providers[0];
+  }
+  return window.ethereum;
+}
+
+async function requestMetaMaskAccounts(ethereum) {
+  let accounts = await ethereum.request({ method: 'eth_accounts' });
+  if (accounts && accounts.length) return accounts;
+
+  try {
+    await ethereum.request({
+      method: 'wallet_requestPermissions',
+      params: [{ eth_accounts: {} }],
+    });
+    accounts = await ethereum.request({ method: 'eth_accounts' });
+    if (accounts && accounts.length) return accounts;
+  } catch (err) {
+    if (err?.code === 4001) throw err;
+    if (err?.code === -32002) {
+      throw new Error('MetaMask đang có yêu cầu kết nối đang chờ. Hãy mở MetaMask và hoàn tất yêu cầu đó.');
+    }
+  }
+
+  return ethereum.request({ method: 'eth_requestAccounts' });
+}
+
+web3Service.getEthereum = getMetaMaskProvider;
+web3Service.hasMetaMask = () => !!getMetaMaskProvider();
+web3Service.getChainId = async () => {
+  const ethereum = getMetaMaskProvider();
+  if (!ethereum) throw new Error('MetaMask chưa được cài đặt');
+  const hex = await ethereum.request({ method: 'eth_chainId' });
+  return parseInt(hex, 16);
+};
+
+web3Service.connect = async () => {
+  const ethereum = getMetaMaskProvider();
+  if (!ethereum) return { ok: false, reason: 'no-metamask' };
+
+  try {
+    const accounts = await requestMetaMaskAccounts(ethereum);
+    if (!accounts || !accounts.length) return { ok: false, reason: 'no-accounts' };
+
+    web3Service.currentChainId = await web3Service.getChainId();
+    const isCorrectNet = web3Service.currentChainId === ACTIVE_NETWORK.chainId;
+
+    state.walletAddress = accounts[0];
+    state.walletStatus = isCorrectNet ? 'connected' : 'wrong_network';
+
+    if (!isCorrectNet) {
+      return { ok: false, reason: 'wrong-network', chainId: web3Service.currentChainId };
+    }
+
+    if (typeof ethers === 'undefined') {
+      web3Service.isDemoMode = true;
+      return { ok: true, address: accounts[0], demo: true };
+    }
+
+    web3Service.provider = new ethers.BrowserProvider(ethereum);
+    web3Service.signer = await web3Service.provider.getSigner();
+    web3Service.contract = new ethers.Contract(CONTRACT_ADDRESS, VOTING_ABI, web3Service.signer);
+
+    web3Service.isDemoMode = false;
+    await web3Service.loadCandidates();
+    await web3Service.checkVotedStatus(accounts[0]);
+    web3Service.listenVotedEvent();
+
+    return { ok: true, address: accounts[0] };
+  } catch (err) {
+    console.error('[VoteChain] connect():', err);
+    return { ok: false, reason: 'error', err };
+  }
+};
+
+web3Service.switchToActiveNetwork = async () => {
+  const ethereum = getMetaMaskProvider();
+  if (!ethereum) throw new Error('MetaMask chưa được cài đặt');
+
+  try {
+    await ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: ACTIVE_NETWORK.chainIdHex }],
+    });
+  } catch (err) {
+    if (err.code !== 4902) throw err;
+
+    const chainParams = {
+      chainId: ACTIVE_NETWORK.chainIdHex,
+      chainName: ACTIVE_NETWORK.name,
+      nativeCurrency: { name: ACTIVE_NETWORK.currency, symbol: ACTIVE_NETWORK.currency, decimals: 18 },
+      rpcUrls: [ACTIVE_NETWORK.rpcUrl],
+    };
+    if (ACTIVE_NETWORK.explorerUrl) {
+      chainParams.blockExplorerUrls = [ACTIVE_NETWORK.explorerUrl];
+    }
+
+    await ethereum.request({
+      method: 'wallet_addEthereumChain',
+      params: [chainParams],
+    });
+  }
+};
+
+async function connectMetaMask() {
+  if (metaMaskConnectPromise) {
+    showToast('info', 'MetaMask đang chờ xác nhận', 'Mở cửa sổ MetaMask và hoàn tất yêu cầu hiện tại.');
+    return metaMaskConnectPromise;
+  }
+
+  metaMaskConnectPromise = (async () => {
+    if (window.location.protocol === 'file:') {
+      showToast('error', 'Không thể kết nối từ file://', 'Hãy mở trang qua http://localhost hoặc Live Server.');
+      _showFileProtocolGuide();
+      return;
+    }
+
+    if (!web3Service.hasMetaMask()) {
+      showToast('error', 'MetaMask chưa được cài đặt', 'Cài extension MetaMask rồi tải lại trang.');
+      return;
+    }
+
+    showToast('info', 'Đang kết nối MetaMask...', 'Nếu thấy cửa sổ MetaMask, chọn tài khoản rồi bấm Connect.');
+    const result = await web3Service.connect();
+
+    if (result.ok) {
+      document.getElementById('network-banner')?.classList.remove('show');
+      walletUI.update();
+      votingUI.updateConnected();
+      renderAll();
+      const walletAddrEl = document.getElementById('set-wallet-addr');
+      if (walletAddrEl) walletAddrEl.textContent = utils.fmtAddr(state.walletAddress);
+
+      showToast(
+        result.demo ? 'warning' : 'success',
+        result.demo ? 'Ví đã kết nối ở Demo Mode' : 'Kết nối ví thành công',
+        `${ACTIVE_NETWORK.name} · ${utils.fmtAddr(state.walletAddress)}`
+      );
+      return;
+    }
+
+    if (result.reason === 'wrong-network') {
+      walletUI.update();
+      document.getElementById('network-banner')?.classList.add('show');
+      const wrongNetEl = document.getElementById('wrong-net-name');
+      if (wrongNetEl) wrongNetEl.textContent = `Chain ID ${result.chainId}`;
+      showToast('warning', 'Sai mạng blockchain', `Cần chuyển sang ${ACTIVE_NETWORK.name}.`);
+      return;
+    }
+
+    if (result.reason === 'no-metamask') {
+      showToast('error', 'MetaMask chưa được cài đặt', 'Cài extension MetaMask rồi tải lại trang.');
+      return;
+    }
+
+    const err = result.err || {};
+    if (err.code === 4001) {
+      showToast('warning', 'Bạn đã hủy kết nối', 'Bấm kết nối lại và chọn Connect trong MetaMask.');
+    } else if (err.code === -32002 || String(err.message || '').includes('pending')) {
+      showToast('warning', 'MetaMask đang có yêu cầu chờ', 'Mở MetaMask và hoàn tất hoặc hủy yêu cầu đang chờ rồi thử lại.');
+    } else {
+      showToast('error', 'Không thể kết nối MetaMask', err.message?.slice(0, 100) || 'Kiểm tra lại MetaMask và tải lại trang.');
+    }
+  })().finally(() => {
+    metaMaskConnectPromise = null;
+  });
+
+  return metaMaskConnectPromise;
+}
+
+async function loginWithMetaMask() {
+  const ethereum = getMetaMaskProvider();
+  if (!ethereum) {
+    showToast('error', 'MetaMask chưa được cài đặt', 'Cài extension MetaMask rồi tải lại trang.');
+    return;
+  }
+
+  showToast('info', 'Đang mở MetaMask...', 'Chọn tài khoản để đăng nhập.');
+  try {
+    const accounts = await requestMetaMaskAccounts(ethereum);
+    const addr = accounts[0];
+    authService.login({ name: 'Người dùng MetaMask', email: addr, role: 'Cử tri (Web3)' });
+    await connectMetaMask();
+  } catch (err) {
+    if (err?.code === 4001) {
+      showToast('warning', 'Bạn đã hủy đăng nhập MetaMask', 'Chọn Connect trong MetaMask để tiếp tục.');
+    } else {
+      showToast('error', 'Không thể đăng nhập MetaMask', err?.message?.slice(0, 100) || '');
+    }
+  }
+}
+
+const ethereumForEvents = getMetaMaskProvider();
+if (ethereumForEvents && !ethereumForEvents.__voteChainHotfixEvents) {
+  ethereumForEvents.__voteChainHotfixEvents = true;
+
+  if (typeof ethereumForEvents.removeAllListeners === 'function') {
+    ethereumForEvents.removeAllListeners('accountsChanged');
+    ethereumForEvents.removeAllListeners('chainChanged');
+  }
+
+  ethereumForEvents.on('accountsChanged', async (accounts) => {
+    if (!accounts.length) {
+      web3Service.cleanup();
+      state.walletStatus = 'not_connected';
+      state.walletAddress = null;
+      state.hasVoted = false;
+      state.votedFor = null;
+      walletUI.update();
+      document.getElementById('vp-nc').style.display = '';
+      document.getElementById('vp-form').style.display = 'none';
+      document.getElementById('vp-voted').classList.add('hidden');
+      showToast('warning', 'Ví đã ngắt kết nối', 'Kết nối lại MetaMask để tiếp tục.');
+      return;
+    }
+
+    state.walletAddress = accounts[0];
+    state.hasVoted = false;
+    state.votedFor = null;
+    state.selectedCandidateId = null;
+
+    walletUI.update();
+    const setWalletAddr = document.getElementById('set-wallet-addr');
+    if (setWalletAddr) setWalletAddr.textContent = utils.fmtAddr(accounts[0]);
+
+    if (web3Service.contract) await web3Service.checkVotedStatus(accounts[0]);
+    votingUI.updateConnected();
+    renderAll();
+    showToast('info', 'Đã đổi tài khoản', utils.fmtAddr(accounts[0]));
+  });
+
+  ethereumForEvents.on('chainChanged', () => {
+    showToast('info', 'Mạng đã thay đổi', 'Đang tải lại ứng dụng...');
+    setTimeout(() => location.reload(), 800);
+  });
+}
+</script>
+
+</body>
+</html>
