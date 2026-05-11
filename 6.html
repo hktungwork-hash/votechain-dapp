@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>VoteChain — Nền tảng Bầu cử Blockchain</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
 /* ═══════════════════════════════════════════
    DESIGN TOKENS
@@ -52,9 +54,9 @@
   --accent:   var(--violet);
 
   /* Typography */
-  --display: 'Syne', sans-serif;
-  --body:    'DM Sans', sans-serif;
-  --mono:    'DM Mono', monospace;
+  --display: 'Be Vietnam Pro', sans-serif;
+  --body: 'Be Vietnam Pro', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
 
   /* Radius */
   --r-sm: 6px;  --r-md: 10px; --r-lg: 14px;
@@ -1696,6 +1698,10 @@ button { cursor: pointer; border: none; background: none; }
                   <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Transaction Hash</div>
                   <div style="color:var(--violet);word-break:break-all" id="vp-voted-tx">0x...</div>
                 </div>
+                <button class="btn btn-ghost" id="btn-reset-my-vote" style="width:100%;justify-content:center;margin-top:12px;padding:12px;font-size:13px" onclick="resetMyVote()">
+                  Hủy phiếu để vote lại
+                  <div class="loading-dot" style="width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:var(--violet);animation:spin .7s linear infinite;display:none"></div>
+                </button>
               </div>
 
               <!-- Form -->
@@ -1825,12 +1831,16 @@ const state = {
   walletAddress: null,
   // Election
   candidates: [
-    { id:1, name:'Nguyễn Thị Minh Châu', party:'Đảng Phát triển Bền vững', bio:'Chuyên gia kinh tế, 15 năm kinh nghiệm lập pháp. Tập trung vào phát triển bền vững và chuyển đổi số.', voteCount:12 },
-    { id:2, name:'Trần Hoàng Nam',        party:'Liên minh Đổi mới',         bio:'Doanh nhân và nhà hoạt động cộng đồng. Đề xuất cải cách giáo dục và hạ tầng thông minh.',         voteCount:7  },
-    { id:3, name:'Lê Phương Linh',        party:'Phong trào Dân chủ',        bio:'Luật sư nhân quyền, tiên phong vận động chính sách minh bạch và phân quyền địa phương.',        voteCount:3  },
+    { id:1, name:'Michael Anderson',   party:'On-chain candidate', bio:'A seasoned leader with 10 years of experience in decentralized governance. Committed to transparency and community-driven decision making.', voteCount:0 },
+    { id:2, name:'Christopher Walker', party:'On-chain candidate', bio:'Blockchain enthusiast and software engineer. Focuses on building scalable and secure infrastructure for Web3 applications.', voteCount:0 },
+    { id:3, name:'Daniel Thompson',    party:'On-chain candidate', bio:'Advocate for privacy rights and open-source technology. Believes in empowering individuals through decentralized tools.', voteCount:0 },
+    { id:4, name:'James Carter',       party:'On-chain candidate', bio:'Financial analyst turned crypto researcher. Dedicated to creating sustainable economic models for decentralized ecosystems.', voteCount:0 },
   ],
   logs: [],
   blockNum: BLOCK_START,
+  contractStartTime: null,
+  contractEndTime: null,
+  contractVotingStatus: null,
   hasVoted: false,
   votedFor: null,
   selectedCandidateId: null,
@@ -1849,8 +1859,15 @@ const utils = {
   total:  () => state.candidates.reduce((s,c) => s+c.voteCount, 0),
   getPhase: () => {
     const n = Date.now();
-    if(n < START_TIME) return 'pending';
-    if(n > END_TIME)   return 'ended';
+    const start = state.contractStartTime || START_TIME;
+    const end = state.contractEndTime || END_TIME;
+    if(n < start) return 'pending';
+    if(n > end)   return 'ended';
+    if(!state.contractStartTime && !state.contractEndTime) {
+      if(state.contractVotingStatus === 'NOT_STARTED') return 'pending';
+      if(state.contractVotingStatus === 'ACTIVE') return 'active';
+      if(state.contractVotingStatus === 'ENDED') return 'ended';
+    }
     return 'active';
   },
   fmtTime: ts => {
@@ -1891,15 +1908,36 @@ function showToast(type, title, desc='', duration=4500) {
    ║ ERROR SERVICE — friendly errors
    ╚══════════════════════════════════════════ */
 const errorService = {
+  message: (err) => {
+    const parts = [
+      err?.reason,
+      err?.shortMessage,
+      err?.message,
+      err?.error?.message,
+      err?.info?.error?.message,
+      err?.data?.message,
+      err?.cause?.message,
+    ];
+    return parts.filter(Boolean).join(' ').toLowerCase();
+  },
+
   // Translate blockchain errors to friendly messages
   classify: (err) => {
-    const msg = (err?.message || err?.reason || '').toLowerCase();
+    const msg = errorService.message(err);
     if(err?.code === 4001 || err?.code === 'ACTION_REJECTED' || msg.includes('user rejected'))
       return 'reject';
-    if(msg.includes('insufficient funds') || msg.includes('gas') || msg.includes('outofgas'))
-      return 'gas';
     if(msg.includes('already voted') || msg.includes('has voted'))
       return 'voted';
+    if(msg.includes('voting has not started') || msg.includes('voting has ended'))
+      return 'period';
+    if(msg.includes('only owner') || msg.includes('owner can reopen'))
+      return 'owner';
+    if(msg.includes('invalid candidate') || msg.includes('candidate does not exist'))
+      return 'candidate';
+    if(msg.includes('insufficient funds') || msg.includes('insufficient balance') || msg.includes('exceeds balance'))
+      return 'gas';
+    if(msg.includes('cannot estimate gas') || msg.includes('estimate gas') || msg.includes('execution reverted'))
+      return 'contract';
     return 'generic';
   },
 
@@ -1924,7 +1962,11 @@ const errorService = {
       reject: { title: 'Bạn đã từ chối giao dịch', desc: 'Mở MetaMask và chấp nhận yêu cầu ký để bỏ phiếu.' },
       gas:    { title: 'Không đủ ETH cho gas', desc: 'Nạp ETH miễn phí từ Sepolia Faucet tại sepoliafaucet.com.' },
       voted:  { title: 'Đã bỏ phiếu rồi', desc: 'Mỗi địa chỉ ví chỉ được bỏ phiếu một lần.' },
-      generic:{ title: 'Giao dịch thất bại', desc: err?.message?.slice(0,80) || 'Lỗi không xác định, thử lại sau.' },
+      period: { title: 'Ngoài thời gian bỏ phiếu', desc: 'Contract chỉ cho phép vote trong khoảng startTime đến endTime.' },
+      owner:  { title: 'Cần ví owner để mở phiên bầu cử', desc: 'Phiên vote đã đóng/chưa mở. Kết nối ví deploy contract để app tự gọi setVotingPeriod.' },
+      candidate: { title: 'Ứng viên không hợp lệ', desc: 'Ứng viên này không tồn tại hoặc đã bị xóa trên contract.' },
+      contract: { title: 'Contract từ chối giao dịch', desc: 'Giao dịch bị revert khi ước tính gas. Kiểm tra thời gian vote, trạng thái ví và ứng viên.' },
+      generic:{ title: 'Giao dịch thất bại', desc: errorService.message(err).slice(0,100) || 'Lỗi không xác định, thử lại sau.' },
     };
     const m = msgs[type] || msgs.generic;
     showToast('error', m.title, m.desc);
@@ -2427,7 +2469,9 @@ function updateTxBadge() {
 /* ─── Countdown ─── */
 function renderCountdown() {
   const now = Date.now(), phase = utils.getPhase();
-  const target = phase==='active' ? END_TIME : phase==='pending' ? START_TIME : null;
+  const start = state.contractStartTime || START_TIME;
+  const end = state.contractEndTime || END_TIME;
+  const target = phase==='active' ? end : phase==='pending' ? start : null;
   const ds = document.getElementById('ds-countdown');
   if(!target) { ds.textContent = phase==='ended'?'KẾT THÚC':'—'; return; }
   const diff = Math.max(0, target-now);
@@ -2446,22 +2490,75 @@ function renderCountdown() {
    ╚══════════════════════════════════════════════════════ */
 
 /* ── ① CONTRACT ADDRESS (từ deploy output) ── */
-const CONTRACT_ADDRESS = "0x6aD9F3bE4D22dB0059AE2AbA25ff97369615517C"
+const DEFAULT_CONTRACT_ADDRESS = "0x2AAF157eEc870aA37A6280A7c09425B0b5E17832";
+const CONTRACT_ADDRESS =
+  new URLSearchParams(window.location.search).get('contract') ||
+  localStorage.getItem('votechainContractAddress') ||
+  DEFAULT_CONTRACT_ADDRESS;
 
 /* ── ② ABI CHÍNH XÁC từ artifacts Hardhat ── */
 const VOTING_ABI = [
+  { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
   {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
+    "anonymous": false,
+    "inputs": [{ "indexed": true, "internalType": "uint256", "name": "_candidateId", "type": "uint256" }],
+    "name": "votedEvent",
+    "type": "event"
   },
   {
     "anonymous": false,
     "inputs": [
+      { "indexed": true,  "internalType": "uint256", "name": "_candidateId", "type": "uint256" },
+      { "indexed": false, "internalType": "string",  "name": "name",         "type": "string" },
+      { "indexed": false, "internalType": "string",  "name": "bio",          "type": "string" }
+    ],
+    "name": "candidateAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "internalType": "uint256", "name": "_candidateId", "type": "uint256" },
+      { "indexed": false, "internalType": "string",  "name": "name",         "type": "string" },
+      { "indexed": false, "internalType": "string",  "name": "bio",          "type": "string" }
+    ],
+    "name": "candidateUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [{ "indexed": true, "internalType": "uint256", "name": "_candidateId", "type": "uint256" }],
+    "name": "candidateDeleted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "voter",       "type": "address" },
       { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" }
     ],
-    "name": "votedEvent",
+    "name": "voteReset",
     "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "voter",          "type": "address" },
+      { "indexed": true, "internalType": "uint256", "name": "oldCandidateId", "type": "uint256" },
+      { "indexed": true, "internalType": "uint256", "name": "newCandidateId", "type": "uint256" }
+    ],
+    "name": "voteChanged",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "_name", "type": "string" },
+      { "internalType": "string", "name": "_bio",  "type": "string" }
+    ],
+    "name": "addCandidate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
     "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
@@ -2469,6 +2566,7 @@ const VOTING_ABI = [
     "outputs": [
       { "internalType": "uint256", "name": "id",        "type": "uint256" },
       { "internalType": "string",  "name": "name",      "type": "string"  },
+      { "internalType": "string",  "name": "bio",       "type": "string"  },
       { "internalType": "uint256", "name": "voteCount", "type": "uint256" }
     ],
     "stateMutability": "view",
@@ -2483,6 +2581,111 @@ const VOTING_ABI = [
   },
   {
     "inputs": [{ "internalType": "uint256", "name": "_candidateId", "type": "uint256" }],
+    "name": "changeVote",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "endTime",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getVotingStatus",
+    "outputs": [{ "internalType": "string", "name": "", "type": "string" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "_index", "type": "uint256" }],
+    "name": "getVoterAt",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getVotersCount",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "hasVoted",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address[]", "name": "_voters", "type": "address[]" }],
+    "name": "resetManyVoters",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "resetMyVote",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "_voter", "type": "address" }],
+    "name": "resetVoter",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "_startTime", "type": "uint256" },
+      { "internalType": "uint256", "name": "_endTime",   "type": "uint256" }
+    ],
+    "name": "setVotingPeriod",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "startTime",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "_candidateId", "type": "uint256" },
+      { "internalType": "string",  "name": "_name",        "type": "string" },
+      { "internalType": "string",  "name": "_bio",         "type": "string" }
+    ],
+    "name": "updateCandidate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "_candidateId", "type": "uint256" }],
+    "name": "deleteCandidate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "_candidateId", "type": "uint256" }],
     "name": "vote",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -2490,8 +2693,8 @@ const VOTING_ABI = [
   },
   {
     "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "name": "voters",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "name": "votedCandidate",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
     "type": "function"
   }
@@ -2577,6 +2780,7 @@ const web3Service = {
 
       /* 6. Load dữ liệu từ contract */
       web3Service.isDemoMode = false;
+      await web3Service.loadVotingMetadata();
       await web3Service.loadCandidates();
       await web3Service.checkVotedStatus(accounts[0]);
 
@@ -2591,10 +2795,87 @@ const web3Service = {
     }
   },
 
+  /* Load voting period/status from the new backend contract */
+  loadVotingMetadata: async () => {
+    if(!web3Service.contract) return;
+    try {
+      const [startBig, endBig, status] = await Promise.all([
+        web3Service.contract.startTime(),
+        web3Service.contract.endTime(),
+        web3Service.contract.getVotingStatus(),
+      ]);
+      state.contractStartTime = Number(startBig) * 1000;
+      state.contractEndTime = Number(endBig) * 1000;
+      state.contractVotingStatus = status;
+    } catch(err) {
+      state.contractStartTime = null;
+      state.contractEndTime = null;
+      state.contractVotingStatus = null;
+      console.warn('[VoteChain] loadVotingMetadata():', err);
+    }
+  },
+
+  ensureVotingPeriodOpen: async () => {
+    if(!web3Service.contract) throw new Error('Contract chưa kết nối');
+    await web3Service.loadVotingMetadata();
+    if(state.contractVotingStatus === 'ACTIVE') return;
+
+    const status = state.contractVotingStatus;
+    if(status !== 'NOT_STARTED' && status !== 'ENDED') return;
+
+    const owner = await web3Service.contract.owner();
+    const signerAddress = state.walletAddress || await web3Service.signer.getAddress();
+    state.walletAddress = signerAddress;
+
+    if(owner.toLowerCase() !== signerAddress.toLowerCase()) {
+      throw { reason: status === 'ENDED'
+        ? 'Voting has ended. Only owner can reopen it.'
+        : 'Voting has not started yet. Only owner can reopen it.' };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const nextEnd = now + 30 * 24 * 60 * 60;
+    showToast('info','Đang mở lại phiên bầu cử','Ví owner sẽ ký setVotingPeriod trước, sau đó app tiếp tục gửi phiếu.');
+    const tx = await web3Service.contract.setVotingPeriod(now - 60, nextEnd, { gasLimit: 150000n });
+    await tx.wait(1);
+    await web3Service.loadVotingMetadata();
+  },
+
+  assertCanVote: async (candidateId) => {
+    if(!web3Service.provider || !web3Service.contract) throw new Error('Contract chưa kết nối');
+
+    const code = await web3Service.provider.getCode(CONTRACT_ADDRESS);
+    if(!code || code === '0x') {
+      throw { reason: `No contract deployed at ${CONTRACT_ADDRESS} on ${ACTIVE_NETWORK.name}` };
+    }
+
+    await web3Service.ensureVotingPeriodOpen();
+
+    const signerAddress = state.walletAddress || await web3Service.signer.getAddress();
+    state.walletAddress = signerAddress;
+
+    const alreadyVoted = await web3Service.contract.hasVoted(signerAddress);
+    if(alreadyVoted) {
+      throw { reason: 'You have already voted' };
+    }
+
+    const selectedOnChain = await web3Service.contract.candidates(candidateId);
+    const id = Number(selectedOnChain.id ?? selectedOnChain[0]);
+    const name = selectedOnChain.name ?? selectedOnChain[1] ?? '';
+    if(!id || !name) {
+      throw { reason: 'Candidate does not exist' };
+    }
+
+    await web3Service.contract.vote.staticCall(candidateId);
+    return selectedOnChain;
+  },
+
   /* Load candidates từ contract.candidates(id) */
   loadCandidates: async () => {
     if(!web3Service.contract) return;
     try {
+      await web3Service.loadVotingMetadata();
+
       /* candidatesCount() → uint256 */
       const countBig = await web3Service.contract.candidatesCount();
       const count    = Number(countBig); // ethers v6: bigint → Number
@@ -2607,21 +2888,29 @@ const web3Service = {
       const loaded = [];
       for(let i = 1; i <= count; i++) {
         /*
-         * candidates(uint256) returns (uint256 id, string name, uint256 voteCount)
+         * New backend: candidates(uint256) returns
+         * (uint256 id, string name, string bio, uint256 voteCount)
          * ethers v6 trả về object với named properties
          */
         const c = await web3Service.contract.candidates(i);
+        const id = Number(c.id ?? c[0]);
+        const name = c.name ?? c[1] ?? '';
+        const bio = c.bio ?? c[2] ?? '';
+        const voteCount = Number(c.voteCount ?? c[3] ?? 0);
+
+        if(!name) continue; // deleted candidate slot in the new contract
+
         loaded.push({
-          id:        Number(c.id),
-          name:      c.name,
-          party:     '',          // contract không có party → để trống
-          bio:       `Ứng cử viên #${i} on-chain · ${Number(c.voteCount)} phiếu`,
-          voteCount: Number(c.voteCount),
+          id,
+          name,
+          party:     'On-chain candidate',
+          bio:       bio || `On-chain candidate #${id}`,
+          voteCount,
         });
       }
 
       state.candidates = loaded;
-      console.log(`[VoteChain] Loaded ${count} candidates from contract`);
+      console.log(`[VoteChain] Loaded ${loaded.length}/${count} candidates from contract`);
 
     } catch(err) {
       console.error('[VoteChain] loadCandidates():', err);
@@ -2629,16 +2918,33 @@ const web3Service = {
     }
   },
 
-  /* Kiểm tra voters(address) → bool */
+  /* Kiểm tra hasVoted(address) → bool */
   checkVotedStatus: async (address) => {
     if(!web3Service.contract) return;
     try {
-      /* voters(address) returns (bool) */
-      state.hasVoted = await web3Service.contract.voters(address);
+      /* New backend: hasVoted(address) returns (bool) */
+      state.hasVoted = await web3Service.contract.hasVoted(address);
       if(state.hasVoted) {
-        state.votedFor = { name: '(đã bỏ phiếu trước đó)' };
+        let votedName = '(đã bỏ phiếu trước đó)';
+        try {
+          const candidateId = Number(await web3Service.contract.votedCandidate(address));
+          if(candidateId > 0) {
+            const c = await web3Service.contract.candidates(candidateId);
+            votedName = c.name || c[1] || votedName;
+            state.votedFor = {
+              id: candidateId,
+              name: votedName,
+              bio: c.bio || c[2] || '',
+              voteCount: Number(c.voteCount ?? c[3] ?? 0),
+            };
+          }
+        } catch(e) {
+          state.votedFor = { name: votedName };
+        }
         document.getElementById('vp-voted-name').textContent = state.votedFor.name;
         document.getElementById('vp-voted-tx').textContent   = 'Đã được ghi nhận on-chain';
+      } else {
+        state.votedFor = null;
       }
     } catch(err) {
       console.warn('[VoteChain] checkVotedStatus():', err);
@@ -2652,8 +2958,16 @@ const web3Service = {
      * vote() là nonpayable → tạo transaction → cần MetaMask ký
      * candidateId phải là number hoặc bigint
      */
-    const tx = await web3Service.contract.vote(candidateId);
+    const tx = await web3Service.contract.vote(candidateId, { gasLimit: 250000n });
     /* Chờ transaction confirm (1 block) */
+    const receipt = await tx.wait(1);
+    return { hash: tx.hash, receipt };
+  },
+
+  resetMyVote: async () => {
+    if(!web3Service.contract) throw new Error('Contract chưa kết nối');
+    await web3Service.ensureVotingPeriodOpen();
+    const tx = await web3Service.contract.resetMyVote({ gasLimit: 180000n });
     const receipt = await tx.wait(1);
     return { hash: tx.hash, receipt };
   },
@@ -2664,6 +2978,11 @@ const web3Service = {
 
     /* Xóa listeners cũ trước */
     web3Service.contract.removeAllListeners('votedEvent');
+    web3Service.contract.removeAllListeners('candidateAdded');
+    web3Service.contract.removeAllListeners('candidateUpdated');
+    web3Service.contract.removeAllListeners('candidateDeleted');
+    web3Service.contract.removeAllListeners('voteReset');
+    web3Service.contract.removeAllListeners('voteChanged');
 
     web3Service.contract.on('votedEvent', async (candidateId, event) => {
       const id = Number(candidateId);
@@ -2702,6 +3021,18 @@ const web3Service = {
       renderAll();
       _flashRow(id);
     });
+
+    const reloadCandidates = async () => {
+      await web3Service.loadCandidates();
+      if(state.walletAddress) await web3Service.checkVotedStatus(state.walletAddress);
+      votingUI.updateConnected();
+      renderAll();
+    };
+    web3Service.contract.on('candidateAdded', reloadCandidates);
+    web3Service.contract.on('candidateUpdated', reloadCandidates);
+    web3Service.contract.on('candidateDeleted', reloadCandidates);
+    web3Service.contract.on('voteReset', reloadCandidates);
+    web3Service.contract.on('voteChanged', reloadCandidates);
 
     console.log('[VoteChain] votedEvent listener đang hoạt động ✓');
   },
@@ -2938,6 +3269,8 @@ async function submitVote() {
       /* ══════════════════════════════════
          REAL ON-CHAIN TRANSACTION
          ══════════════════════════════════ */
+      await web3Service.assertCanVote(state.selectedCandidateId);
+
       showToast('info','Xác nhận trong MetaMask...','Ký giao dịch để ghi phiếu bầu lên blockchain.');
 
       const { hash, receipt } = await web3Service.vote(state.selectedCandidateId);
@@ -3012,6 +3345,50 @@ async function submitVote() {
     btn.disabled = false;
     if(span) span.style.display = '';
     errorService.handleVoteError(err);
+  }
+}
+
+async function resetMyVote() {
+  errorService.hideInline();
+
+  const btn = document.getElementById('btn-reset-my-vote');
+  const dot = btn?.querySelector('.loading-dot');
+  if(btn) btn.disabled = true;
+  if(dot) dot.style.display = 'block';
+
+  try {
+    if(!web3Service.contract || web3Service.isDemoMode) {
+      const votedCand = state.votedFor;
+      if(votedCand?.id) {
+        const cand = state.candidates.find(c => c.id === votedCand.id);
+        if(cand && cand.voteCount > 0) cand.voteCount--;
+      }
+      await utils.sleep(900);
+    } else {
+      showToast('info','Xác nhận hủy phiếu trong MetaMask','Ký giao dịch resetMyVote để mở quyền vote lại cho ví này.');
+      await web3Service.resetMyVote();
+      await web3Service.loadCandidates();
+    }
+
+    state.hasVoted = false;
+    state.votedFor = null;
+    state.selectedCandidateId = null;
+
+    document.getElementById('vp-voted').classList.add('hidden');
+    document.getElementById('vp-form').classList.remove('hidden');
+    document.getElementById('vp-form').style.display = 'flex';
+    document.getElementById('selected-preview').textContent = 'Chưa chọn ứng viên...';
+    document.getElementById('selected-preview').style.color = 'var(--text-3)';
+    document.getElementById('btn-vote-submit').disabled = true;
+
+    renderAll();
+    votingUI.updateConnected();
+    showToast('success','Đã hủy phiếu','Ví này có thể chọn ứng viên và vote lại.');
+  } catch(err) {
+    errorService.handleVoteError(err);
+  } finally {
+    if(dot) dot.style.display = 'none';
+    if(btn) btn.disabled = false;
   }
 }
 
