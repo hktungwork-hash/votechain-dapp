@@ -1523,8 +1523,8 @@ button { cursor: pointer; border: none; background: none; }
         <div class="stat-card">
           <div class="stat-icon" style="background:rgba(245,158,11,.1)">⏱</div>
           <div class="stat-value" id="ds-countdown" style="font-size:18px;font-family:var(--mono)">—</div>
-          <div class="stat-label">Thời gian còn lại</div>
-          <div class="stat-change" style="color:var(--text-2)">Hạn: 14/05/2026</div>
+          <div class="stat-label" id="ds-countdown-label">Thời gian còn lại</div>
+          <div class="stat-change" id="ds-countdown-sub" style="color:var(--text-2)">Hạn: 23:00 14/05/2026</div>
         </div>
       </div>
 
@@ -1615,19 +1615,19 @@ button { cursor: pointer; border: none; background: none; }
 
       <!-- Phase timeline -->
       <div class="phase-timeline" id="phase-timeline">
-        <div class="phase-step done">
+        <div class="phase-step done" data-phase-step="pending">
           <div class="phase-step-circle">✓</div>
           <div class="phase-step-label">Chuẩn bị</div>
         </div>
-        <div class="phase-step active">
+        <div class="phase-step active" data-phase-step="active">
           <div class="phase-step-circle">2</div>
           <div class="phase-step-label">Đang mở</div>
         </div>
-        <div class="phase-step">
+        <div class="phase-step" data-phase-step="counting">
           <div class="phase-step-circle">3</div>
           <div class="phase-step-label">Kiểm phiếu</div>
         </div>
-        <div class="phase-step">
+        <div class="phase-step" data-phase-step="ended">
           <div class="phase-step-circle">4</div>
           <div class="phase-step-label">Kết thúc</div>
         </div>
@@ -1640,7 +1640,7 @@ button { cursor: pointer; border: none; background: none; }
           <div class="card">
             <div class="card-header">
               <div class="card-title">Chọn ứng cử viên</div>
-              <div class="badge badge-emerald">🟢 Đang mở</div>
+              <div class="badge badge-emerald" id="voting-status-badge">🟢 Đang mở</div>
             </div>
             <div class="card-body">
               <div class="vote-radio-list" id="vote-radio-list"></div>
@@ -1692,8 +1692,8 @@ button { cursor: pointer; border: none; background: none; }
               <div class="inline-error error-period" id="vp-closed">
                 <div class="inline-error-icon">⏱</div>
                 <div class="inline-error-text">
-                  <h5>Phiên bầu cử không mở</h5>
-                  <p>Hệ thống chỉ cho phép bỏ phiếu trong thời gian bầu cử. Lịch sử giao dịch vẫn được lưu để đối chiếu.</p>
+                  <h5 id="vp-closed-title">Phiên bầu cử không mở</h5>
+                  <p id="vp-closed-desc">Hệ thống chỉ cho phép bỏ phiếu trong thời gian bầu cử. Lịch sử giao dịch vẫn được lưu để đối chiếu.</p>
                 </div>
               </div>
 
@@ -1830,8 +1830,9 @@ button { cursor: pointer; border: none; background: none; }
    ╚══════════════════════════════════════════ */
 const COLORS = ['#7c6ef5','#22d3ee','#f59e0b','#10b981','#f43f5e','#a78bfa'];
 const CANDIDATE_COLORS = ['var(--violet)','var(--cyan)','var(--amber)','var(--emerald)','var(--rose)'];
-const END_TIME   = new Date('2026-05-14T23:59:00+07:00').getTime();
+const END_TIME   = new Date('2026-05-14T23:00:00+07:00').getTime();
 const START_TIME = new Date('2026-05-01T00:00:00+07:00').getTime();
+const COUNTING_DURATION_MS = 3 * 60 * 1000;
 const BLOCK_START = 4821901;
 
 /* ╔══════════════════════════════════════════
@@ -1850,11 +1851,17 @@ const state = {
     { id:4, name:'Phạm Gia Huy', party:'Ứng viên on-chain', bio:'Hướng đến mô hình kinh tế bền vững, công bằng và thực tế cho hệ sinh thái Web3.', voteCount:0 },
   ],
   logs: [],
+  suspiciousVoters: [],
   txKeys: new Set(),
   blockNum: BLOCK_START,
   contractStartTime: null,
   contractEndTime: null,
   contractVotingStatus: null,
+  onchainStartTime: null,
+  onchainEndTime: null,
+  onchainVotingStatus: null,
+  scheduleMismatch: false,
+  scheduleMismatchWarned: false,
   hasVoted: false,
   votedFor: null,
   selectedCandidateId: null,
@@ -1966,17 +1973,20 @@ const utils = {
   rndAddr:() => '0x' + utils.rndHex(4) + '...' + utils.rndHex(4),
   sleep:  ms => new Promise(r => setTimeout(r, ms)),
   total:  () => state.candidates.reduce((s,c) => s+c.voteCount, 0),
+  hasSuspiciousVoters: () => Array.isArray(state.suspiciousVoters) && state.suspiciousVoters.length > 0,
   getPhase: () => {
     const n = Date.now();
     const start = state.contractStartTime || START_TIME;
     const end = state.contractEndTime || END_TIME;
     if(n < start) return 'pending';
-    if(n > end)   return 'ended';
     if(!state.contractStartTime && !state.contractEndTime) {
       if(state.contractVotingStatus === 'NOT_STARTED') return 'pending';
       if(state.contractVotingStatus === 'ACTIVE') return 'active';
-      if(state.contractVotingStatus === 'ENDED') return 'ended';
+      if(state.contractVotingStatus === 'ENDED') {
+        return n <= end + COUNTING_DURATION_MS || utils.hasSuspiciousVoters() ? 'counting' : 'ended';
+      }
     }
+    if(n > end) return n <= end + COUNTING_DURATION_MS || utils.hasSuspiciousVoters() ? 'counting' : 'ended';
     return 'active';
   },
   fmtTime: ts => {
@@ -1987,6 +1997,13 @@ const utils = {
     day:'2-digit', month:'2-digit', year:'numeric',
     hour:'2-digit', minute:'2-digit'
   }),
+  fmtElectionDateTime: ts => new Date(ts).toLocaleString('vi-VN', {
+    hour:'2-digit',
+    minute:'2-digit',
+    day:'2-digit',
+    month:'2-digit',
+    year:'numeric',
+  }),
   fmtAddr: a => a ? (a.length > 14 ? (a.slice(0,6)+'...'+a.slice(-4)) : a) : '—',
   shortHash: h => h && h.length > 20 ? `${h.slice(0,10)}...${h.slice(-6)}` : (h || '—'),
   escapeHtml: v => String(v ?? '').replace(/[&<>"']/g, ch => ({
@@ -1995,6 +2012,12 @@ const utils = {
   candColor: i => COLORS[((i % COLORS.length) + COLORS.length) % COLORS.length],
   candInitials: name => name.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase(),
   validateEmail: e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e),
+  getLocalVotingStatus: () => {
+    const now = Date.now();
+    if(now < START_TIME) return 'NOT_STARTED';
+    if(now <= END_TIME) return 'ACTIVE';
+    return 'ENDED';
+  },
 };
 
 /* ╔══════════════════════════════════════════
@@ -2047,6 +2070,8 @@ const errorService = {
       return 'voted';
     if(msg.includes('voting has not started') || msg.includes('voting has ended'))
       return 'period';
+    if(msg.includes('deadline is out of sync') || msg.includes('chưa đồng bộ'))
+      return 'schedule';
     if(msg.includes('only owner') || msg.includes('owner can reopen'))
       return 'owner';
     if(msg.includes('invalid candidate') || msg.includes('candidate does not exist'))
@@ -2080,6 +2105,7 @@ const errorService = {
       gas:    { title: 'Không đủ ETH cho gas', desc: 'Nạp ETH miễn phí từ Sepolia Faucet tại sepoliafaucet.com.' },
       voted:  { title: 'Đã bỏ phiếu rồi', desc: 'Mỗi địa chỉ ví chỉ được bỏ phiếu một lần.' },
       period: { title: 'Ngoài thời gian bỏ phiếu', desc: 'Contract chỉ cho phép vote trong khoảng startTime đến endTime.' },
+      schedule: { title: 'Deadline contract chưa đồng bộ', desc: 'Frontend đã đặt hạn 23:00 14/05/2026, nhưng contract on-chain vẫn dùng hạn cũ. Owner cần chạy setVotingPeriod.' },
       owner:  { title: 'Cần ví owner để mở phiên bầu cử', desc: 'Phiên vote đã đóng/chưa mở. Kết nối ví deploy contract để app tự gọi setVotingPeriod.' },
       candidate: { title: 'Ứng viên không hợp lệ', desc: 'Ứng viên này không tồn tại hoặc đã bị xóa trên contract.' },
       contract: { title: 'Contract từ chối giao dịch', desc: 'Giao dịch bị revert khi ước tính gas. Kiểm tra thời gian vote, trạng thái ví và ứng viên.' },
@@ -2299,6 +2325,11 @@ const votingUI = {
       return;
     }
 
+    if(state.scheduleMismatch && state.onchainVotingStatus !== 'ACTIVE') {
+      closed.classList.add('show');
+      return;
+    }
+
     if(utils.getPhase() !== 'active') {
       closed.classList.add('show');
       return;
@@ -2355,6 +2386,7 @@ function _submitVotePlaceholder_removed() {}
    ║ RENDER ENGINE
    ╚══════════════════════════════════════════ */
 function renderAll() {
+  renderElectionPhase();
   renderDashboardStats();
   renderLeaderboard();
   renderMiniChart();
@@ -2365,6 +2397,79 @@ function renderAll() {
   renderTxTable();
   updateTxBadge();
   renderCountdown();
+}
+
+function renderElectionPhase() {
+  const phase = utils.getPhase();
+  const order = ['pending', 'active', 'counting', 'ended'];
+  const labels = {
+    pending:  { badge: '⏳ Chưa mở', className: 'badge badge-amber' },
+    active:   { badge: '🟢 Đang mở', className: 'badge badge-emerald' },
+    counting: { badge: '🧮 Kiểm phiếu', className: 'badge badge-amber' },
+    ended:    { badge: '🏁 Kết thúc', className: 'badge badge-violet' },
+  };
+  const activeIndex = Math.max(order.indexOf(phase), 0);
+
+  document.querySelectorAll('[data-phase-step]').forEach((step, index) => {
+    const circle = step.querySelector('.phase-step-circle');
+    step.classList.toggle('done', index < activeIndex);
+    step.classList.toggle('active', index === activeIndex);
+    if(circle) circle.textContent = index < activeIndex ? '✓' : String(index + 1);
+  });
+
+  const badge = document.getElementById('voting-status-badge');
+  if(badge) {
+    const meta = labels[phase] || labels.ended;
+    badge.className = meta.className;
+    badge.textContent = meta.badge;
+  }
+
+  document.querySelectorAll('.live-pill').forEach(pill => {
+    const dot = pill.querySelector('.live-dot');
+    if(phase === 'active') {
+      pill.style.background = 'var(--emerald-lt)';
+      pill.style.borderColor = 'rgba(16,185,129,.2)';
+      pill.style.color = 'var(--emerald)';
+      if(dot) dot.style.background = 'var(--emerald)';
+      pill.lastChild.textContent = pill.textContent.trim().toLowerCase() === 'live' ? 'Live' : ' Trực tiếp';
+    } else if(phase === 'counting') {
+      pill.style.background = 'var(--amber-lt)';
+      pill.style.borderColor = 'rgba(245,158,11,.2)';
+      pill.style.color = 'var(--amber)';
+      if(dot) dot.style.background = 'var(--amber)';
+      pill.lastChild.textContent = ' Kiểm phiếu';
+    } else {
+      pill.style.background = 'var(--violet-lt)';
+      pill.style.borderColor = 'rgba(124,110,245,.2)';
+      pill.style.color = 'var(--violet)';
+      if(dot) dot.style.background = 'var(--violet)';
+      pill.lastChild.textContent = phase === 'pending' ? ' Chưa mở' : ' Kết thúc';
+    }
+  });
+
+  const closedTitle = document.getElementById('vp-closed-title');
+  const closedDesc = document.getElementById('vp-closed-desc');
+  if(closedTitle && closedDesc) {
+    const suspiciousCount = state.suspiciousVoters.length;
+    if(state.scheduleMismatch && state.onchainVotingStatus !== 'ACTIVE') {
+      closedTitle.textContent = 'Contract chưa cập nhật deadline';
+      closedDesc.textContent = 'Frontend đã đặt hạn 23:00 14/05/2026, nhưng contract on-chain vẫn đang dùng hạn cũ. Owner cần chạy setVotingPeriod trước khi nhận thêm phiếu.';
+    } else if(phase === 'counting') {
+      closedTitle.textContent = 'Đang kiểm phiếu';
+      closedDesc.textContent = suspiciousCount > 0
+        ? `Có ${suspiciousCount} cử tri cần rà soát trước khi công bố kết quả.`
+        : 'Thời gian bầu cử đã kết thúc. Hệ thống đang kiểm phiếu trong 3 phút trước khi kết thúc phiên.';
+    } else if(phase === 'ended') {
+      closedTitle.textContent = 'Phiên bầu cử đã kết thúc';
+      closedDesc.textContent = 'Kết quả đã được chốt. Hệ thống không nhận thêm phiếu bầu mới.';
+    } else if(phase === 'pending') {
+      closedTitle.textContent = 'Phiên bầu cử chưa mở';
+      closedDesc.textContent = 'Hệ thống sẽ cho phép bỏ phiếu khi đến thời gian bắt đầu.';
+    } else {
+      closedTitle.textContent = 'Phiên bầu cử không mở';
+      closedDesc.textContent = 'Hệ thống chỉ cho phép bỏ phiếu trong thời gian bầu cử.';
+    }
+  }
 }
 
 /* ─── Dashboard stats ─── */
@@ -2618,7 +2723,44 @@ function renderCountdown() {
   const end = state.contractEndTime || END_TIME;
   const target = phase==='active' ? end : phase==='pending' ? start : null;
   const ds = document.getElementById('ds-countdown');
-  if(!target) { ds.textContent = phase==='ended'?'KẾT THÚC':'—'; return; }
+  const label = document.getElementById('ds-countdown-label');
+  const sub = document.getElementById('ds-countdown-sub');
+  const deadline = utils.fmtElectionDateTime(end);
+  const startLabel = utils.fmtElectionDateTime(start);
+  const countingEnd = new Date(end + COUNTING_DURATION_MS).toLocaleTimeString('vi-VN', {
+    hour:'2-digit',
+    minute:'2-digit',
+  });
+  const suspiciousCount = state.suspiciousVoters.length;
+  const phaseCopy = {
+    pending:  { value: 'CHƯA MỞ', label: 'Chờ bắt đầu', sub: `Mở lúc: ${startLabel}`, color: 'var(--amber)' },
+    active:   { value: null, label: 'Thời gian còn lại', sub: `Hạn: ${deadline}`, color: 'var(--text-2)' },
+    counting: {
+      value: 'KIỂM PHIẾU',
+      label: 'Đã hết thời gian bầu cử',
+      sub: suspiciousCount > 0
+        ? `Đang rà soát ${suspiciousCount} cử tri đáng ngờ`
+        : `Tự kết thúc sau 3 phút, lúc ${countingEnd}`,
+      color: 'var(--amber)'
+    },
+    ended:    { value: 'KẾT THÚC', label: 'Phiên bầu cử đã kết thúc', sub: `Đã đóng vào ${deadline}`, color: 'var(--violet)' },
+  };
+  const copy = phaseCopy[phase] || phaseCopy.ended;
+  if(state.scheduleMismatch && phase === 'active') {
+    copy.sub = 'Cần cập nhật deadline on-chain để nhận phiếu';
+    copy.color = 'var(--amber)';
+  }
+
+  if(label) label.textContent = copy.label;
+  if(sub) {
+    sub.textContent = copy.sub;
+    sub.style.color = copy.color;
+  }
+
+  if(!target) {
+    ds.textContent = copy.value || '—';
+    return;
+  }
   const diff = Math.max(0, target-now);
   const h = Math.floor(diff/3600000), m = Math.floor(diff%3600000/60000), s = Math.floor(diff%60000/1000);
   ds.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
@@ -2930,13 +3072,41 @@ const web3Service = {
         web3Service.contract.endTime(),
         web3Service.contract.getVotingStatus(),
       ]);
-      state.contractStartTime = Number(startBig) * 1000;
-      state.contractEndTime = Number(endBig) * 1000;
-      state.contractVotingStatus = status;
+      const onchainStart = Number(startBig) * 1000;
+      const onchainEnd = Number(endBig) * 1000;
+      const endDriftMs = Math.abs(onchainEnd - END_TIME);
+
+      state.onchainStartTime = onchainStart;
+      state.onchainEndTime = onchainEnd;
+      state.onchainVotingStatus = status;
+      state.scheduleMismatch = endDriftMs > 60 * 1000;
+
+      if(state.scheduleMismatch) {
+        state.contractStartTime = START_TIME;
+        state.contractEndTime = END_TIME;
+        state.contractVotingStatus = utils.getLocalVotingStatus();
+
+        if(!state.scheduleMismatchWarned) {
+          state.scheduleMismatchWarned = true;
+          showToast(
+            'warning',
+            'Deadline on-chain chưa đồng bộ',
+            `Contract đang lưu hạn ${utils.fmtElectionDateTime(onchainEnd)}. Cần owner cập nhật về ${utils.fmtElectionDateTime(END_TIME)}.`
+          );
+        }
+      } else {
+        state.contractStartTime = onchainStart;
+        state.contractEndTime = onchainEnd;
+        state.contractVotingStatus = status;
+      }
     } catch(err) {
       state.contractStartTime = null;
       state.contractEndTime = null;
       state.contractVotingStatus = null;
+      state.onchainStartTime = null;
+      state.onchainEndTime = null;
+      state.onchainVotingStatus = null;
+      state.scheduleMismatch = false;
       console.warn('[VoteChain] loadVotingMetadata():', err);
     }
   },
@@ -2947,6 +3117,9 @@ const web3Service = {
     if(state.contractVotingStatus === 'ACTIVE') return;
 
     const status = state.contractVotingStatus;
+    if(state.scheduleMismatch && state.onchainVotingStatus !== 'ACTIVE') {
+      throw { reason: 'Contract deadline is out of sync with the configured election deadline' };
+    }
     if(status === 'NOT_STARTED') throw { reason: 'Voting has not started yet' };
     if(status === 'ENDED') throw { reason: 'Voting has ended' };
     throw { reason: 'Voting period is not active' };
@@ -3673,6 +3846,7 @@ function startSimulation() {
 
   /* Countdown timer */
   setInterval(() => {
+    renderElectionPhase();
     renderCountdown();
     votingUI.updateConnected();
   }, 1000);
