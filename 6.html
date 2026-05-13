@@ -1092,6 +1092,8 @@ button { cursor: pointer; border: none; background: none; }
 
 .tx-hash-link { font-family: var(--mono); font-size: 12px; color: var(--violet); cursor: pointer; }
 .tx-hash-link:hover { text-decoration: underline; }
+.tx-voter-name { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.tx-candidate-name { font-size: 13px; font-weight: 700; color: var(--text); }
 .tx-voter { font-family: var(--mono); font-size: 12px; color: var(--text-2); }
 .tx-block { font-family: var(--mono); font-size: 12px; color: var(--text-3); }
 
@@ -1226,6 +1228,11 @@ button { cursor: pointer; border: none; background: none; }
   border: 1px solid rgba(124,110,245,.18);
   color: var(--violet);
 }
+.inline-error.error-period {
+  background: rgba(245,158,11,.07);
+  border: 1px solid rgba(245,158,11,.18);
+  color: var(--amber);
+}
 .inline-error-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
 .inline-error-text h5 { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
 .inline-error-text p  { font-size: 11px; opacity: .85; }
@@ -1259,8 +1266,8 @@ button { cursor: pointer; border: none; background: none; }
 @media(max-width:640px) {
   .page { padding: 16px; }
   .candidates-grid { grid-template-columns: 1fr; }
-  .tx-table th:nth-child(3),
-  .tx-table td:nth-child(3) { display: none; }
+  .tx-table th:nth-child(4),
+  .tx-table td:nth-child(4) { display: none; }
 }
 </style>
 </head>
@@ -1681,6 +1688,15 @@ button { cursor: pointer; border: none; background: none; }
                 <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="connectMetaMask()">Kết nối MetaMask</button>
               </div>
 
+              <!-- Closed -->
+              <div class="inline-error error-period" id="vp-closed">
+                <div class="inline-error-icon">⏱</div>
+                <div class="inline-error-text">
+                  <h5>Phiên bầu cử không mở</h5>
+                  <p>Hệ thống chỉ cho phép bỏ phiếu trong thời gian bầu cử. Lịch sử giao dịch vẫn được lưu để đối chiếu.</p>
+                </div>
+              </div>
+
               <!-- Voted -->
               <div id="vp-voted" class="hidden">
                 <div class="voted-confirm-box" style="margin-bottom:14px">
@@ -1698,10 +1714,6 @@ button { cursor: pointer; border: none; background: none; }
                   <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Transaction Hash</div>
                   <div style="color:var(--violet);word-break:break-all" id="vp-voted-tx">0x...</div>
                 </div>
-                <button class="btn btn-ghost" id="btn-reset-my-vote" style="width:100%;justify-content:center;margin-top:12px;padding:12px;font-size:13px" onclick="resetMyVote()">
-                  Hủy phiếu để vote lại
-                  <div class="loading-dot" style="width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:var(--violet);animation:spin .7s linear infinite;display:none"></div>
-                </button>
               </div>
 
               <!-- Form -->
@@ -1744,6 +1756,7 @@ button { cursor: pointer; border: none; background: none; }
             <thead>
               <tr>
                 <th>Hash</th>
+                <th>Người bỏ phiếu</th>
                 <th>Ứng viên</th>
                 <th>Block</th>
                 <th>Thời gian</th>
@@ -1831,12 +1844,13 @@ const state = {
   walletAddress: null,
   // Election
   candidates: [
-    { id:1, name:'Nguyen Van An',   party:'On-chain candidate', bio:'A dedicated community leader with strong experience in decentralized governance and transparent decision-making for digital communities.', voteCount:0 },
-    { id:2, name:'Tran Minh Khoa', party:'On-chain candidate', bio:'A blockchain developer passionate about building secure and scalable Web3 applications for the future of decentralized technology.', voteCount:0 },
-    { id:3, name:'Daniel Thompson',    party:'On-chain candidate', bio:'An advocate for privacy, open-source innovation, and digital freedom, focused on empowering users through decentralized systems.', voteCount:0 },
-    { id:4, name:'Pham Gia Huy',       party:'On-chain candidate', bio:'A crypto researcher and financial strategist committed to creating sustainable economic models within blockchain ecosystems.', voteCount:0 },
+    { id:1, name:'Nguyễn Văn An', party:'Ứng viên on-chain', bio:'Ưu tiên minh bạch trong quản trị, cải thiện trải nghiệm cử tri và công khai toàn bộ tiến trình bầu cử.', voteCount:0 },
+    { id:2, name:'Trần Minh Khoa', party:'Ứng viên on-chain', bio:'Tập trung xây dựng hạ tầng blockchain an toàn, ổn định và dễ kiểm chứng cho cộng đồng.', voteCount:0 },
+    { id:3, name:'Lê Quốc Bảo', party:'Ứng viên on-chain', bio:'Theo đuổi quyền riêng tư, mã nguồn mở và các công cụ phi tập trung trao quyền cho người dùng.', voteCount:0 },
+    { id:4, name:'Phạm Gia Huy', party:'Ứng viên on-chain', bio:'Hướng đến mô hình kinh tế bền vững, công bằng và thực tế cho hệ sinh thái Web3.', voteCount:0 },
   ],
   logs: [],
+  txKeys: new Set(),
   blockNum: BLOCK_START,
   contractStartTime: null,
   contractEndTime: null,
@@ -1847,6 +1861,101 @@ const state = {
   txFilter: 'all',
   currentPage: 'dashboard',
 };
+
+const TX_LOG_LIMIT = 100;
+
+function getTxStorageKey() {
+  const chainId = typeof ACTIVE_NETWORK !== 'undefined' ? ACTIVE_NETWORK.chainId : 'demo';
+  const contract = typeof CONTRACT_ADDRESS !== 'undefined' ? CONTRACT_ADDRESS.toLowerCase() : 'demo';
+  return `votechain:txLogs:${chainId}:${contract}`;
+}
+
+function txLogKey(log) {
+  if(log.hash) return String(log.hash).toLowerCase();
+  return `${String(log.voter || '').toLowerCase()}:${log.candidateId}:${log.blockNumber}`;
+}
+
+function rebuildTxKeys() {
+  state.txKeys = new Set(state.logs.map(txLogKey));
+}
+
+function normalizeTxLog(entry) {
+  const candidateId = Number(entry.candidateId || 0);
+  const voter = entry.voter || '';
+  const blockNumber = Number(entry.blockNumber || state.blockNum || BLOCK_START);
+  return {
+    hash: entry.hash || `local-${candidateId}-${blockNumber}-${Date.now()}`,
+    voter,
+    voterName: entry.voterName || '',
+    candidateId,
+    candidateName: entry.candidateName || '',
+    blockNumber,
+    ts: Number(entry.ts || Date.now()),
+    status: entry.status || 'Confirmed',
+    source: entry.source || 'chain',
+    isUser: Boolean(entry.isUser),
+  };
+}
+
+function isCompleteOnChainLog(log) {
+  return /^0x[a-fA-F0-9]{64}$/.test(log.hash || '') &&
+    /^0x[a-fA-F0-9]{40}$/.test(log.voter || '');
+}
+
+function clearSyntheticTxLogs() {
+  state.logs = state.logs.filter(isCompleteOnChainLog);
+  rebuildTxKeys();
+  persistTxLogs();
+  updateTxBadge();
+}
+
+function persistTxLogs() {
+  try {
+    localStorage.setItem(getTxStorageKey(), JSON.stringify(state.logs.slice(0, TX_LOG_LIMIT)));
+  } catch(err) {
+    console.warn('[VoteChain] persistTxLogs():', err);
+  }
+}
+
+function addTxLog(entry, options = {}) {
+  const { persist = true } = options;
+  const log = normalizeTxLog(entry);
+  const key = txLogKey(log);
+  const existingIndex = state.logs.findIndex(item => txLogKey(item) === key);
+
+  if(existingIndex >= 0) {
+    state.logs[existingIndex] = {
+      ...state.logs[existingIndex],
+      ...log,
+      isUser: state.logs[existingIndex].isUser || log.isUser,
+      voterName: log.voterName || state.logs[existingIndex].voterName,
+      candidateName: log.candidateName || state.logs[existingIndex].candidateName,
+    };
+  } else {
+    state.logs.unshift(log);
+  }
+
+  state.logs.sort((a,b) => (b.blockNumber - a.blockNumber) || (b.ts - a.ts));
+  state.logs = state.logs.slice(0, TX_LOG_LIMIT);
+  state.blockNum = Math.max(state.blockNum, log.blockNumber);
+  rebuildTxKeys();
+  if(persist) persistTxLogs();
+  updateTxBadge();
+  return log;
+}
+
+function loadStoredTxLogs() {
+  try {
+    const raw = localStorage.getItem(getTxStorageKey());
+    if(!raw) return;
+    const stored = JSON.parse(raw);
+    if(Array.isArray(stored)) {
+      stored.forEach(item => addTxLog(item, { persist:false }));
+    }
+  } catch(err) {
+    console.warn('[VoteChain] loadStoredTxLogs():', err);
+  }
+}
 
 /* ╔══════════════════════════════════════════
    ║ UTILS
@@ -1874,8 +1983,16 @@ const utils = {
     const d=new Date(ts);
     return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
   },
-  fmtAddr: a => a ? (a.slice(0,6)+'...'+a.slice(-4)) : '—',
-  candColor: i => COLORS[i % COLORS.length],
+  fmtDateTime: ts => new Date(ts).toLocaleString('vi-VN', {
+    day:'2-digit', month:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit'
+  }),
+  fmtAddr: a => a ? (a.length > 14 ? (a.slice(0,6)+'...'+a.slice(-4)) : a) : '—',
+  shortHash: h => h && h.length > 20 ? `${h.slice(0,10)}...${h.slice(-6)}` : (h || '—'),
+  escapeHtml: v => String(v ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch])),
+  candColor: i => COLORS[((i % COLORS.length) + COLORS.length) % COLORS.length],
   candInitials: name => name.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase(),
   validateEmail: e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e),
 };
@@ -2148,16 +2265,17 @@ const electionService = {
     if(!c) return;
     c.voteCount++;
     state.blockNum++;
-    const entry = {
+    const entry = addTxLog({
       hash: utils.rndTx(),
       voter: isUser ? state.walletAddress : utils.rndAddr(),
+      voterName: isUser ? (state.user?.name || 'Ví của tôi') : 'Cử tri demo',
       candidateId,
+      candidateName: c.name,
       blockNumber: state.blockNum,
       ts: Date.now(),
+      source: 'demo',
       isUser,
-    };
-    state.logs.unshift(entry);
-    if(state.logs.length > 50) state.logs.pop();
+    });
     return entry;
   },
 };
@@ -2168,15 +2286,26 @@ const electionService = {
 const votingUI = {
   updateConnected: () => {
     if(state.walletStatus !== 'connected') return;
+    const form = document.getElementById('vp-form');
+    const voted = document.getElementById('vp-voted');
+    const closed = document.getElementById('vp-closed');
     document.getElementById('vp-nc').style.display = 'none';
+    form.classList.add('hidden');
+    voted.classList.add('hidden');
+    closed.classList.remove('show');
+
     if(state.hasVoted) {
-      document.getElementById('vp-voted').classList.remove('hidden');
-      document.getElementById('vp-form').classList.add('hidden');
-    } else {
-      document.getElementById('vp-form').classList.remove('hidden');
-      document.getElementById('vp-form').style.display = 'flex';
-      document.getElementById('vp-voted').classList.add('hidden');
+      voted.classList.remove('hidden');
+      return;
     }
+
+    if(utils.getPhase() !== 'active') {
+      closed.classList.add('show');
+      return;
+    }
+
+    form.classList.remove('hidden');
+    form.style.display = 'flex';
   }
 };
 
@@ -2199,6 +2328,14 @@ function renderVoteRadioList() {
 }
 
 function selectCandidate(id, el) {
+  if(utils.getPhase() !== 'active') {
+    showToast('warning','Phiên bầu cử không mở','Bạn chỉ có thể bỏ phiếu trong thời gian bầu cử.');
+    return;
+  }
+  if(state.hasVoted) {
+    showToast('warning','Đã bỏ phiếu rồi','Mỗi ví chỉ được bỏ phiếu một lần.');
+    return;
+  }
   state.selectedCandidateId = id;
   document.querySelectorAll('.vote-radio-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
@@ -2387,14 +2524,14 @@ function renderActivityFeed() {
   feed.innerHTML = state.logs.slice(0,6).map(l => {
     const ci = state.candidates.findIndex(c => c.id===l.candidateId);
     const color = utils.candColor(ci);
-    const cname = state.candidates[ci]?.name || 'Unknown';
+    const cname = l.candidateName || state.candidates[ci]?.name || `Ứng viên #${l.candidateId}`;
     return `<div class="activity-item">
       <div class="activity-dot" style="background:${color}"></div>
       <div style="flex:1">
-        <div class="activity-text">${utils.fmtAddr(l.voter)} bầu cho <b>${cname.split(' ').pop()}</b></div>
+        <div class="activity-text">${utils.escapeHtml(l.voterName || utils.fmtAddr(l.voter))} bầu cho <b>${utils.escapeHtml(cname)}</b></div>
         <div class="activity-time">${utils.fmtTime(l.ts)} · block #${l.blockNumber}</div>
       </div>
-      <div style="font-family:var(--mono);font-size:10px;color:var(--text-3)">${l.hash.slice(0,12)}</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text-3)">${utils.escapeHtml(utils.shortHash(l.hash))}</div>
     </div>`;
   }).join('');
 }
@@ -2404,7 +2541,7 @@ function renderCandidatesGrid() {
   const tot = utils.total();
   const maxV = Math.max(...state.candidates.map(c=>c.voteCount),1);
   const sorted = [...state.candidates].sort((a,b)=>b.voteCount-a.voteCount);
-  const rankLabels=['1st','2nd','3rd'];
+  const rankLabels=['1st','2nd','3rd', '4th'];
   const rankColors=['var(--gold)','#94a3b8','#b47846'];
   document.getElementById('candidates-grid').innerHTML = sorted.map((c,i)=>{
     const orig = state.candidates.findIndex(x=>x.id===c.id);
@@ -2438,19 +2575,27 @@ function renderTxTable() {
     : state.logs;
   const tbody = document.getElementById('tx-table-body');
   if(!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-3)">Chưa có giao dịch nào.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-3)">Chưa có giao dịch nào.</td></tr>`;
     return;
   }
   tbody.innerHTML = filtered.slice(0,20).map(l => {
     const ci = state.candidates.findIndex(c=>c.id===l.candidateId);
     const color = utils.candColor(ci);
-    const cname = state.candidates[ci]?.name || 'Unknown';
+    const cname = l.candidateName || state.candidates[ci]?.name || `Ứng viên #${l.candidateId}`;
+    const voterLabel = l.voterName || (l.isUser ? 'Ví của tôi' : 'Cử tri on-chain');
     return `<tr>
-      <td><span class="tx-hash-link">${l.hash}</span></td>
-      <td><span class="badge badge-violet" style="background:${color}15;color:${color}">${cname.split(' ').pop()}</span></td>
+      <td><span class="tx-hash-link" title="${utils.escapeHtml(l.hash)}">${utils.escapeHtml(utils.shortHash(l.hash))}</span></td>
+      <td>
+        <div class="tx-voter-name">${utils.escapeHtml(voterLabel)}</div>
+        <div class="tx-voter" title="${utils.escapeHtml(l.voter)}">${utils.escapeHtml(utils.fmtAddr(l.voter))}</div>
+      </td>
+      <td>
+        <div class="tx-candidate-name">${utils.escapeHtml(cname)}</div>
+        <span class="badge badge-violet" style="background:${color}15;color:${color}">ID #${l.candidateId}</span>
+      </td>
       <td><span class="tx-block">#${l.blockNumber}</span></td>
-      <td><span class="tx-voter">${utils.fmtTime(l.ts)}</span></td>
-      <td><span class="badge badge-emerald">✓ Confirmed</span></td>
+      <td><span class="tx-voter">${utils.escapeHtml(utils.fmtDateTime(l.ts))}</span></td>
+      <td><span class="badge badge-emerald">✓ ${utils.escapeHtml(l.status || 'Confirmed')}</span></td>
     </tr>`;
   }).join('');
 }
@@ -2495,13 +2640,21 @@ const CONTRACT_ADDRESS =
   new URLSearchParams(window.location.search).get('contract') ||
   localStorage.getItem('votechainContractAddress') ||
   DEFAULT_CONTRACT_ADDRESS;
+const CONTRACT_DEPLOY_BLOCKS = {
+  "0x0af195e57fe9393c3825c21d8a60e4bf9c9d63df": 10840000,
+};
+const VOTE_LOG_FALLBACK_LOOKBACK = 50000;
+const VOTE_LOG_CHUNK_SIZE = 5000;
 
 /* ── ② ABI CHÍNH XÁC từ artifacts Hardhat ── */
 const VOTING_ABI = [
   { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
   {
     "anonymous": false,
-    "inputs": [{ "indexed": true, "internalType": "uint256", "name": "_candidateId", "type": "uint256" }],
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "voter", "type": "address" },
+      { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" }
+    ],
     "name": "votedEvent",
     "type": "event"
   },
@@ -2534,20 +2687,10 @@ const VOTING_ABI = [
   {
     "anonymous": false,
     "inputs": [
-      { "indexed": true, "internalType": "address", "name": "voter",       "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "voter", "type": "address" },
       { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" }
     ],
     "name": "voteReset",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      { "indexed": true, "internalType": "address", "name": "voter",          "type": "address" },
-      { "indexed": true, "internalType": "uint256", "name": "oldCandidateId", "type": "uint256" },
-      { "indexed": true, "internalType": "uint256", "name": "newCandidateId", "type": "uint256" }
-    ],
-    "name": "voteChanged",
     "type": "event"
   },
   {
@@ -2577,13 +2720,6 @@ const VOTING_ABI = [
     "name": "candidatesCount",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "uint256", "name": "_candidateId", "type": "uint256" }],
-    "name": "changeVote",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -2626,20 +2762,6 @@ const VOTING_ABI = [
     "name": "owner",
     "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "address[]", "name": "_voters", "type": "address[]" }],
-    "name": "resetManyVoters",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "resetMyVote",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -2728,6 +2850,7 @@ const web3Service = {
   provider:   null,
   signer:     null,
   contract:   null,
+  voteLogSubscriptions: [],
   isDemoMode: true,
   currentChainId: null,
 
@@ -2764,6 +2887,7 @@ const web3Service = {
       web3Service.signer   = await web3Service.provider.getSigner();
 
       /* 4. Khởi tạo contract instance */
+      if(web3Service.contract) web3Service.contract.removeAllListeners();
       web3Service.contract = new ethers.Contract(
         CONTRACT_ADDRESS,
         VOTING_ABI,
@@ -2780,8 +2904,10 @@ const web3Service = {
 
       /* 6. Load dữ liệu từ contract */
       web3Service.isDemoMode = false;
+      clearSyntheticTxLogs();
       await web3Service.loadVotingMetadata();
       await web3Service.loadCandidates();
+      await web3Service.loadVoteHistory();
       await web3Service.checkVotedStatus(accounts[0]);
 
       /* 7. Lắng nghe votedEvent */
@@ -2821,24 +2947,9 @@ const web3Service = {
     if(state.contractVotingStatus === 'ACTIVE') return;
 
     const status = state.contractVotingStatus;
-    if(status !== 'NOT_STARTED' && status !== 'ENDED') return;
-
-    const owner = await web3Service.contract.owner();
-    const signerAddress = state.walletAddress || await web3Service.signer.getAddress();
-    state.walletAddress = signerAddress;
-
-    if(owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw { reason: status === 'ENDED'
-        ? 'Voting has ended. Only owner can reopen it.'
-        : 'Voting has not started yet. Only owner can reopen it.' };
-    }
-
-    const now = Math.floor(Date.now() / 1000);
-    const nextEnd = now + 30 * 24 * 60 * 60;
-    showToast('info','Đang mở lại phiên bầu cử','Ví owner sẽ ký setVotingPeriod trước, sau đó app tiếp tục gửi phiếu.');
-    const tx = await web3Service.contract.setVotingPeriod(now - 60, nextEnd, { gasLimit: 150000n });
-    await tx.wait(1);
-    await web3Service.loadVotingMetadata();
+    if(status === 'NOT_STARTED') throw { reason: 'Voting has not started yet' };
+    if(status === 'ENDED') throw { reason: 'Voting has ended' };
+    throw { reason: 'Voting period is not active' };
   },
 
   assertCanVote: async (candidateId) => {
@@ -2903,8 +3014,8 @@ const web3Service = {
         loaded.push({
           id,
           name,
-          party:     'On-chain candidate',
-          bio:       bio || `On-chain candidate #${id}`,
+          party:     'Ứng viên on-chain',
+          bio:       bio || `Ứng viên on-chain #${id}`,
           voteCount,
         });
       }
@@ -2939,10 +3050,23 @@ const web3Service = {
             };
           }
         } catch(e) {
-          state.votedFor = { name: votedName };
+          const localLog = state.logs.find(l =>
+            l.voter && address && l.voter.toLowerCase() === address.toLowerCase()
+          );
+          if(localLog) {
+            state.votedFor = {
+              id: localLog.candidateId,
+              name: localLog.candidateName || state.candidates.find(c => c.id === localLog.candidateId)?.name || votedName,
+            };
+          } else {
+            state.votedFor = { name: votedName };
+          }
         }
         document.getElementById('vp-voted-name').textContent = state.votedFor.name;
-        document.getElementById('vp-voted-tx').textContent   = 'Đã được ghi nhận on-chain';
+        const userLog = state.logs.find(l =>
+          l.voter && address && l.voter.toLowerCase() === address.toLowerCase()
+        );
+        document.getElementById('vp-voted-tx').textContent = userLog?.hash || 'Đã được ghi nhận on-chain';
       } else {
         state.votedFor = null;
       }
@@ -2964,15 +3088,139 @@ const web3Service = {
     return { hash: tx.hash, receipt };
   },
 
-  resetMyVote: async () => {
-    if(!web3Service.contract) throw new Error('Contract chưa kết nối');
-    await web3Service.ensureVotingPeriodOpen();
-    const tx = await web3Service.contract.resetMyVote({ gasLimit: 180000n });
-    const receipt = await tx.wait(1);
-    return { hash: tx.hash, receipt };
+  getBlockTimestamp: async (blockNumber) => {
+    try {
+      const block = await web3Service.provider.getBlock(blockNumber);
+      return block?.timestamp ? Number(block.timestamp) * 1000 : Date.now();
+    } catch(err) {
+      console.warn('[VoteChain] getBlockTimestamp():', err);
+      return Date.now();
+    }
   },
 
-  /* Lắng nghe event votedEvent(uint256 indexed candidateId) */
+  getVoteTopics: () => ({
+    current: ethers.id('votedEvent(address,uint256)'),
+    legacy: ethers.id('votedEvent(uint256)'),
+  }),
+
+  getHistoryStartBlock: (latest) => {
+    const configured = CONTRACT_DEPLOY_BLOCKS[CONTRACT_ADDRESS.toLowerCase()];
+    return configured || Math.max(0, latest - VOTE_LOG_FALLBACK_LOOKBACK);
+  },
+
+  fetchVoteLogs: async (fromBlock, toBlock) => {
+    const topics = web3Service.getVoteTopics();
+    const eventTopics = [topics.current, topics.legacy];
+    const byKey = new Map();
+
+    for(let start = fromBlock; start <= toBlock; start += VOTE_LOG_CHUNK_SIZE) {
+      const end = Math.min(start + VOTE_LOG_CHUNK_SIZE - 1, toBlock);
+
+      for(const topic0 of eventTopics) {
+        try {
+          const logs = await web3Service.provider.getLogs({
+            address: CONTRACT_ADDRESS,
+            fromBlock: start,
+            toBlock: end,
+            topics: [topic0],
+          });
+
+          logs.forEach(log => {
+            const key = `${log.transactionHash}:${log.index ?? log.logIndex ?? log.blockNumber}`;
+            byKey.set(key, log);
+          });
+        } catch(err) {
+          console.warn(`[VoteChain] getLogs ${start}-${end}:`, err);
+        }
+      }
+    }
+
+    return [...byKey.values()].sort((a,b) =>
+      Number(a.blockNumber) - Number(b.blockNumber) ||
+      Number(a.index ?? a.logIndex ?? 0) - Number(b.index ?? b.logIndex ?? 0)
+    );
+  },
+
+  decodeVoteLog: async (log) => {
+    const topics = web3Service.getVoteTopics();
+    let voter = '';
+    let candidateId = 0;
+
+    if(log.topics?.[0] === topics.current) {
+      voter = ethers.getAddress('0x' + log.topics[1].slice(26));
+      candidateId = Number(BigInt(log.topics[2]));
+    } else if(log.topics?.[0] === topics.legacy) {
+      candidateId = Number(BigInt(log.topics[1]));
+      const tx = await web3Service.provider.getTransaction(log.transactionHash);
+      voter = tx?.from || '';
+    } else {
+      return null;
+    }
+
+    return {
+      voter,
+      candidateId,
+      blockNumber: Number(log.blockNumber ?? state.blockNum),
+      hash: log.transactionHash,
+    };
+  },
+
+  ingestVoteLog: async (log, render = false) => {
+    const decoded = await web3Service.decodeVoteLog(log);
+    if(!decoded || !decoded.candidateId) return null;
+
+    const candidate = state.candidates.find(c => c.id === decoded.candidateId);
+    const isUser = Boolean(
+      state.walletAddress &&
+      decoded.voter &&
+      decoded.voter.toLowerCase() === state.walletAddress.toLowerCase()
+    );
+
+    const entry = addTxLog({
+      hash: decoded.hash,
+      voter: decoded.voter,
+      voterName: isUser ? (state.user?.name || 'Ví của tôi') : 'Cử tri on-chain',
+      candidateId: decoded.candidateId,
+      candidateName: candidate?.name || `Ứng viên #${decoded.candidateId}`,
+      blockNumber: decoded.blockNumber,
+      ts: await web3Service.getBlockTimestamp(decoded.blockNumber),
+      status: 'Confirmed',
+      source: 'chain',
+      isUser,
+    }, { persist:false });
+
+    if(render) {
+      persistTxLogs();
+      if(state.walletAddress) await web3Service.checkVotedStatus(state.walletAddress);
+      renderAll();
+      _flashRow(decoded.candidateId);
+    }
+
+    return entry;
+  },
+
+  loadVoteHistory: async () => {
+    if(!web3Service.contract) return;
+    try {
+      const latest = await web3Service.provider.getBlockNumber();
+      const fromBlock = web3Service.getHistoryStartBlock(latest);
+      const logs = await web3Service.fetchVoteLogs(fromBlock, latest);
+
+      for(const log of logs.slice(-TX_LOG_LIMIT)) {
+        await web3Service.ingestVoteLog(log);
+      }
+
+      persistTxLogs();
+      renderActivityFeed();
+      renderTxTable();
+      updateTxBadge();
+      console.log(`[VoteChain] Loaded ${logs.length} vote logs from block ${fromBlock} to ${latest}`);
+    } catch(err) {
+      console.warn('[VoteChain] loadVoteHistory():', err);
+    }
+  },
+
+  /* Lắng nghe event votedEvent(address indexed voter, uint256 indexed candidateId) */
   listenVotedEvent: () => {
     if(!web3Service.contract) return;
 
@@ -2981,45 +3229,24 @@ const web3Service = {
     web3Service.contract.removeAllListeners('candidateAdded');
     web3Service.contract.removeAllListeners('candidateUpdated');
     web3Service.contract.removeAllListeners('candidateDeleted');
-    web3Service.contract.removeAllListeners('voteReset');
-    web3Service.contract.removeAllListeners('voteChanged');
+    web3Service.voteLogSubscriptions.forEach(({ filter, listener }) => {
+      web3Service.provider.off(filter, listener);
+    });
+    web3Service.voteLogSubscriptions = [];
 
-    web3Service.contract.on('votedEvent', async (candidateId, event) => {
-      const id = Number(candidateId);
-      console.log(`[VoteChain] votedEvent: candidateId=${id}`);
-
-      /* Reload voteCount từ chain để chính xác */
-      try {
-        const c    = await web3Service.contract.candidates(id);
-        const cand = state.candidates.find(x => x.id === id);
-        if(cand) cand.voteCount = Number(c.voteCount);
-      } catch(e) {
-        /* Fallback: tăng local */
-        const cand = state.candidates.find(x => x.id === id);
-        if(cand) cand.voteCount++;
-      }
-
-      /* Lấy block info từ event */
-      const blockNum = event?.log?.blockNumber
-        ? Number(event.log.blockNumber)
-        : ++state.blockNum;
-      const txHash = event?.log?.transactionHash || utils.rndTx();
-
-      /* Thêm vào tx log */
-      const entry = {
-        hash:        txHash,
-        voter:       utils.rndAddr(), // on-chain voter addr cần decode event nếu muốn chính xác
-        candidateId: id,
-        blockNumber: blockNum,
-        ts:          Date.now(),
-        isUser:      false,
+    const topics = web3Service.getVoteTopics();
+    [topics.current, topics.legacy].forEach(topic0 => {
+      const filter = { address: CONTRACT_ADDRESS, topics: [topic0] };
+      const listener = async (log) => {
+        try {
+          await web3Service.loadCandidates();
+          await web3Service.ingestVoteLog(log, true);
+        } catch(err) {
+          console.warn('[VoteChain] vote log listener:', err);
+        }
       };
-      state.logs.unshift(entry);
-      if(state.logs.length > 50) state.logs.pop();
-      state.blockNum = Math.max(state.blockNum, blockNum);
-
-      renderAll();
-      _flashRow(id);
+      web3Service.provider.on(filter, listener);
+      web3Service.voteLogSubscriptions.push({ filter, listener });
     });
 
     const reloadCandidates = async () => {
@@ -3031,10 +3258,8 @@ const web3Service = {
     web3Service.contract.on('candidateAdded', reloadCandidates);
     web3Service.contract.on('candidateUpdated', reloadCandidates);
     web3Service.contract.on('candidateDeleted', reloadCandidates);
-    web3Service.contract.on('voteReset', reloadCandidates);
-    web3Service.contract.on('voteChanged', reloadCandidates);
 
-    console.log('[VoteChain] votedEvent listener đang hoạt động ✓');
+    console.log('[VoteChain] vote log listener đang hoạt động ✓');
   },
 
   /* Chuyển mạng về Hardhat Local */
@@ -3065,10 +3290,16 @@ const web3Service = {
 
   /* Cleanup */
   cleanup: () => {
+    if(web3Service.provider) {
+      web3Service.voteLogSubscriptions.forEach(({ filter, listener }) => {
+        web3Service.provider.off(filter, listener);
+      });
+    }
     if(web3Service.contract) web3Service.contract.removeAllListeners();
     web3Service.contract   = null;
     web3Service.provider   = null;
     web3Service.signer     = null;
+    web3Service.voteLogSubscriptions = [];
     web3Service.isDemoMode = true;
   },
 };
@@ -3250,6 +3481,11 @@ async function submitVote() {
     showToast('warning','Chưa chọn ứng viên','Vui lòng chọn một ứng cử viên trước khi bỏ phiếu.');
     return;
   }
+  if(utils.getPhase() !== 'active') {
+    errorService.handleVoteError({ reason: 'Voting has ended' });
+    votingUI.updateConnected();
+    return;
+  }
   errorService.hideInline();
 
   const btn  = document.getElementById('btn-vote-submit');
@@ -3303,16 +3539,18 @@ async function submitVote() {
     /* ── Success path (chung cho cả 2 mode) ── */
     const votedCand = state.candidates.find(x => x.id === state.selectedCandidateId);
 
-    const logEntry = {
+    const logEntry = addTxLog({
       hash:        txHash,
       voter:       state.walletAddress || utils.rndAddr(),
+      voterName:   state.user?.name || 'Ví của tôi',
       candidateId: state.selectedCandidateId,
+      candidateName: votedCand?.name || `Ứng viên #${state.selectedCandidateId}`,
       blockNumber: blockNum,
       ts:          Date.now(),
+      status:      'Confirmed',
+      source:      web3Service.isDemoMode ? 'demo' : 'chain',
       isUser:      true,
-    };
-    state.logs.unshift(logEntry);
-    if(state.logs.length > 50) state.logs.pop();
+    });
 
     state.hasVoted = true;
     state.votedFor = votedCand;
@@ -3348,50 +3586,6 @@ async function submitVote() {
   }
 }
 
-async function resetMyVote() {
-  errorService.hideInline();
-
-  const btn = document.getElementById('btn-reset-my-vote');
-  const dot = btn?.querySelector('.loading-dot');
-  if(btn) btn.disabled = true;
-  if(dot) dot.style.display = 'block';
-
-  try {
-    if(!web3Service.contract || web3Service.isDemoMode) {
-      const votedCand = state.votedFor;
-      if(votedCand?.id) {
-        const cand = state.candidates.find(c => c.id === votedCand.id);
-        if(cand && cand.voteCount > 0) cand.voteCount--;
-      }
-      await utils.sleep(900);
-    } else {
-      showToast('info','Xác nhận hủy phiếu trong MetaMask','Ký giao dịch resetMyVote để mở quyền vote lại cho ví này.');
-      await web3Service.resetMyVote();
-      await web3Service.loadCandidates();
-    }
-
-    state.hasVoted = false;
-    state.votedFor = null;
-    state.selectedCandidateId = null;
-
-    document.getElementById('vp-voted').classList.add('hidden');
-    document.getElementById('vp-form').classList.remove('hidden');
-    document.getElementById('vp-form').style.display = 'flex';
-    document.getElementById('selected-preview').textContent = 'Chưa chọn ứng viên...';
-    document.getElementById('selected-preview').style.color = 'var(--text-3)';
-    document.getElementById('btn-vote-submit').disabled = true;
-
-    renderAll();
-    votingUI.updateConnected();
-    showToast('success','Đã hủy phiếu','Ví này có thể chọn ứng viên và vote lại.');
-  } catch(err) {
-    errorService.handleVoteError(err);
-  } finally {
-    if(dot) dot.style.display = 'none';
-    if(btn) btn.disabled = false;
-  }
-}
-
 /* ── ⑧ MetaMask event handlers ── */
 if(typeof window.ethereum !== 'undefined') {
   /* Thay đổi account */
@@ -3409,6 +3603,7 @@ if(typeof window.ethereum !== 'undefined') {
       document.getElementById('vp-nc').style.display   = '';
       document.getElementById('vp-form').style.display = 'none';
       document.getElementById('vp-voted').classList.add('hidden');
+      document.getElementById('vp-closed').classList.remove('show');
 
       showToast('warning','Ví đã ngắt kết nối','Kết nối lại MetaMask để tiếp tục.');
       return;
@@ -3459,23 +3654,28 @@ function startSimulation() {
     c.voteCount++;
     state.blockNum++;
 
-    const entry = {
+    addTxLog({
       hash:        utils.rndTx(),
       voter:       utils.rndAddr(),
+      voterName:   'Cử tri demo',
       candidateId: c.id,
+      candidateName: c.name,
       blockNumber: state.blockNum,
       ts:          Date.now(),
+      status:      'Confirmed',
+      source:      'demo',
       isUser:      false,
-    };
-    state.logs.unshift(entry);
-    if(state.logs.length > 50) state.logs.pop();
+    });
 
     renderAll();
     _flashRow(c.id);
   }, 7000);
 
   /* Countdown timer */
-  setInterval(renderCountdown, 1000);
+  setInterval(() => {
+    renderCountdown();
+    votingUI.updateConnected();
+  }, 1000);
 }
 
 /* ── ⑩ Load ethers.js v6 từ CDN (bất đồng bộ) ── */
@@ -3519,12 +3719,30 @@ function saveProfile() {
    ║ SEED DEMO DATA
    ╚══════════════════════════════════════════ */
 (function seedDemoLogs() {
+  loadStoredTxLogs();
+  if(state.logs.length) {
+    state.candidates.forEach(c => {
+      c.voteCount = state.logs.filter(l => l.candidateId === c.id).length;
+    });
+    return;
+  }
   const seeds = [
-    {candidateId:1,voter:'0xab3f...9c12',blockNumber:BLOCK_START-3,ts:Date.now()-540000},
-    {candidateId:2,voter:'0x77ea...3d01',blockNumber:BLOCK_START-2,ts:Date.now()-280000},
-    {candidateId:3,voter:'0xf20c...8a44',blockNumber:BLOCK_START-1,ts:Date.now()-140000},
+    {candidateId:1,voter:'0xab3f...9c12',voterName:'Nguyễn Minh Đức',blockNumber:BLOCK_START-4,ts:Date.now()-720000},
+    {candidateId:2,voter:'0x77ea...3d01',voterName:'Trần Hải Nam',blockNumber:BLOCK_START-3,ts:Date.now()-540000},
+    {candidateId:3,voter:'0xf20c...8a44',voterName:'Lê Thu Hà',blockNumber:BLOCK_START-2,ts:Date.now()-280000},
+    {candidateId:4,voter:'0x91bd...7f2a',voterName:'Phạm Quang Minh',blockNumber:BLOCK_START-1,ts:Date.now()-140000},
   ];
-  seeds.forEach(l => state.logs.push({hash:utils.rndTx(),...l}));
+  seeds.forEach(l => {
+    const candidate = state.candidates.find(c => c.id === l.candidateId);
+    if(candidate) candidate.voteCount++;
+    addTxLog({
+      hash: utils.rndTx(),
+      candidateName: candidate?.name,
+      status: 'Confirmed',
+      source: 'demo',
+      ...l
+    }, { persist:false });
+  });
 })();
 </script>
 <script>
@@ -3595,10 +3813,14 @@ web3Service.connect = async () => {
 
     web3Service.provider = new ethers.BrowserProvider(ethereum);
     web3Service.signer = await web3Service.provider.getSigner();
+    if(web3Service.contract) web3Service.contract.removeAllListeners();
     web3Service.contract = new ethers.Contract(CONTRACT_ADDRESS, VOTING_ABI, web3Service.signer);
 
     web3Service.isDemoMode = false;
+    clearSyntheticTxLogs();
+    await web3Service.loadVotingMetadata();
     await web3Service.loadCandidates();
+    await web3Service.loadVoteHistory();
     await web3Service.checkVotedStatus(accounts[0]);
     web3Service.listenVotedEvent();
 
@@ -3746,6 +3968,7 @@ if (ethereumForEvents && !ethereumForEvents.__voteChainHotfixEvents) {
       document.getElementById('vp-nc').style.display = '';
       document.getElementById('vp-form').style.display = 'none';
       document.getElementById('vp-voted').classList.add('hidden');
+      document.getElementById('vp-closed').classList.remove('show');
       showToast('warning', 'Ví đã ngắt kết nối', 'Kết nối lại MetaMask để tiếp tục.');
       return;
     }
